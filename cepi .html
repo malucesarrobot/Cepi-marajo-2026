@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CEPI Marajó">
+<meta name="theme-color" content="#4a7dff">
+<title>Controle de Atividades – CEPI Marajó 2026</title>
+
+<!-- ╔══════════════════════════════════════════╗
+     ║  FIREBASE – cole suas chaves aqui       ║
+     ╚══════════════════════════════════════════╝ -->
+<script type="module">
+import { initializeApp }        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot }
+                                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ▼▼▼ COLE SUAS CHAVES AQUI ▼▼▼
+const firebaseConfig = {
+  apiKey:            "AIzaSyCrQyfKXGjEtiyOwci7jhd5_e3l3fMTClE",
+  authDomain:        "cepi-marajo-2026.firebaseapp.com",
+  projectId:         "cepi-marajo-2026",
+  storageBucket:     "cepi-marajo-2026.firebasestorage.app",
+  messagingSenderId: "676779769177",
+  appId:             "1:676779769177:web:63c1671558172684056048"
+};
+// ▲▲▲ FIM DAS CHAVES ▲▲▲
+
+// Detecta se as chaves foram preenchidas
+const FIREBASE_ATIVO = !Object.values(firebaseConfig).some(v => v === "COLE_AQUI");
+
+let db = null, unsubscribe = null;
+
+if (FIREBASE_ATIVO) {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  window._db = db;
+  window._FIREBASE_ATIVO = true;
+
+  // Escuta mudanças em tempo real
+  const ref = doc(db, "cepi_marajo", "dados_2026");
+  unsubscribe = onSnapshot(ref, (snap) => {
+    if (snap.exists()) {
+      const remote = snap.data();
+      const localTS  = parseInt(localStorage.getItem('cepi_ts') || '0');
+      const remoteTS = remote.ts || 0;
+      // Só atualiza se o dado remoto for mais novo que o local
+      if (remoteTS > localTS) {
+        window._dadosRemoto = remote;
+        if (window._appPronto) {
+          aplicarDadosRemotos(remote);
+        }
+      }
+    }
+  });
+
+  window._salvarFirebase = async (payload) => {
+    try {
+      const ref = doc(db, "cepi_marajo", "dados_2026");
+      await setDoc(ref, { ...payload, ts: Date.now() });
+      setSaveDot('saved');
+      localStorage.setItem('cepi_ts', String(Date.now()));
+    } catch(e) {
+      console.error('Firebase save error:', e);
+      setSaveDot('dirty');
+    }
+  };
+
+  window._carregarFirebase = async () => {
+    try {
+      const ref = doc(db, "cepi_marajo", "dados_2026");
+      const snap = await getDoc(ref);
+      if (snap.exists()) return snap.data();
+    } catch(e) { console.error('Firebase load error:', e); }
+    return null;
+  };
+
+} else {
+  window._FIREBASE_ATIVO = false;
+  console.warn("Firebase não configurado — usando modo offline (localStorage).");
+}
+</script>
+
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;CEPI%20Maraj%C3%B3%202026&quot;,&quot;short_name&quot;:&quot;CEPI%20Maraj%C3%B3&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23f0f2f7&quot;,&quot;theme_color&quot;:&quot;%234a7dff&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234a7dff'/%3E%3Ctext y='.9em' font-size='80'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;any&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
+<style>
+:root{--bg:#f0f2f7;--white:#fff;--border:#e2e6ef;--text:#1a1a2e;--muted:#7b8499;--primary:#4a7dff;--green:#16a34a;--yellow:#ca8a04;--red:#dc2626;--purple:#7c3aed;--orange:#ea580c;--r:12px;--sh:0 1px 3px rgba(0,0,0,.07),0 4px 14px rgba(0,0,0,.05)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#c5cad4;border-radius:3px}
+button{cursor:pointer;font-family:inherit;transition:all .12s;border:none}
+button:active{transform:scale(.96)}
+input,select,textarea{font-family:inherit}
+
+/* HEADER */
+.hdr{background:var(--white);border-bottom:1px solid var(--border);padding:0 16px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.hdr-in{max-width:1500px;margin:0 auto;display:flex;align-items:center;gap:10px;height:56px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4a7dff,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.logo-t h1{font-size:14px;font-weight:700;white-space:nowrap}
+.logo-t p{font-size:10px;color:var(--muted)}
+.sp{flex:1}
+.save-dot{width:8px;height:8px;border-radius:50%;background:#e5e7eb;transition:background .3s;flex-shrink:0}
+.save-dot.saved{background:#16a34a}
+.save-dot.dirty{background:#f59e0b}
+
+/* TABS */
+.tabs{display:flex;gap:3px;background:#f3f4f6;padding:3px;border-radius:9px}
+.tab{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);background:transparent}
+.tab.on{background:var(--white);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+/* MAIN */
+.main{max-width:1500px;margin:0 auto;padding:14px 16px}
+
+/* CARDS */
+.card{background:var(--white);border-radius:var(--r);box-shadow:var(--sh)}
+.cp{padding:16px 18px}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;align-items:center}
+.lbl{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-right:2px}
+.chip{padding:5px 12px;border-radius:20px;border:2px solid transparent;font-size:12px;font-weight:600;background:#f3f4f6;color:#374151}
+.chip.on{color:#fff}
+.chip:hover:not(.on){filter:brightness(.94)}
+
+/* STATS */
+.sstrip{display:flex;gap:8px;flex-wrap:wrap}
+.sbox{background:var(--white);border-radius:10px;padding:7px 13px;box-shadow:var(--sh);text-align:center;min-width:82px}
+.sbox .v{font-size:16px;font-weight:800}
+.sbox .l{font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.4px;margin-top:1px}
+
+/* TABLE */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#f8f9fb;border-bottom:2px solid var(--border)}
+th{padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;white-space:nowrap;letter-spacing:.4px}
+th.c,td.c{text-align:center}
+tbody tr{border-bottom:1px solid #f3f4f6;transition:background .1s}
+tbody tr:hover{background:#f8f9ff}
+td{padding:7px 10px;font-size:13px}
+
+/* CHECKBOX */
+.cb{width:32px;height:32px;border-radius:7px;border:1.5px solid #dde1ea;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0 auto;transition:all .12s;font-size:14px;user-select:none}
+.cb:hover{transform:scale(1.1)}
+
+/* INPUTS */
+.si{width:54px;text-align:center;padding:4px 5px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;outline:none}
+.si:focus{border-color:var(--primary)}
+input[type=text],input[type=number],input[type=date],select,textarea{border:1.5px solid var(--border);border-radius:8px;padding:8px 11px;font-size:13px;outline:none;transition:border .15s;background:var(--white)}
+input:focus,select:focus,textarea:focus{border-color:var(--primary)}
+
+/* NOTA */
+.nb{display:inline-block;padding:3px 10px;border-radius:7px;font-weight:800;font-size:13px;min-width:48px;text-align:center}
+.ng{background:#dcfce7;color:#15803d}
+.ny{background:#fef9c3;color:#a16207}
+.nr{background:#fee2e2;color:#b91c1c}
+
+/* BTNS */
+.btn{padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600}
+.bp{background:var(--primary);color:#fff}.bp:hover{background:#3a6dee}
+.bs{background:#f3f4f6;color:#374151}.bs:hover{background:#e5e7eb}
+.bg{background:#dcfce7;color:#15803d}.bg:hover{background:#bbf7d0}
+.br{background:#fee2e2;color:#dc2626}.br:hover{background:#fecaca}
+.bpur{background:#ede9fe;color:#7c3aed}.bpur:hover{background:#ddd6fe}
+
+/* TOOLBAR */
+.tb{display:flex;gap:7px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.si2{flex:1;min-width:160px;padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none}
+.si2:focus{border-color:var(--primary)}
+
+/* FOOTER */
+.tf{padding:9px 16px;border-top:1px solid var(--border);background:#f8f9fb;border-radius:0 0 var(--r) var(--r);display:flex;gap:12px;align-items:center;font-size:11px;color:var(--muted);flex-wrap:wrap}
+
+/* MODAL */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--white);border-radius:16px;padding:20px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:14px}
+.fg{margin-bottom:11px}
+.fg label{display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px;letter-spacing:.4px}
+.fg input,.fg select,.fg textarea{width:100%}
+.fg textarea{resize:vertical;min-height:90px}
+.frow{display:flex;gap:9px;flex-wrap:wrap}
+.frow .fg{flex:1;min-width:110px}
+.ma{display:flex;gap:7px;justify-content:flex-end;margin-top:14px}
+
+/* ATIV CARD */
+.ac{display:flex;align-items:center;gap:11px;padding:11px 14px;background:#f9fafb;border-radius:10px;border:1px solid var(--border);margin-bottom:7px}
+.ai{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.am{display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.pb{flex:1;min-width:100px}
+.bb{height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden}
+.bf{height:100%;border-radius:3px;transition:width .4s}
+
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.rr{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #f3f4f6}
+.rn{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+
+/* CONFIG PANEL */
+.cfg-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6}
+.cfg-row label{flex:1;font-size:13px;font-weight:600}
+.cfg-row small{color:var(--muted);font-size:11px;display:block}
+.cfg-row input{width:70px;text-align:center}
+
+/* PWA BANNER */
+.pwa-banner{background:linear-gradient(135deg,#4a7dff,#7c3aed);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:12px}
+.pwa-banner button{background:rgba(255,255,255,.2);color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700}
+
+/* TOOLTIP */
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:3px 9px;border-radius:5px;font-size:10px;white-space:nowrap;pointer-events:none;z-index:9999}
+
+/* FADE */
+.fade{animation:fi .18s ease}
+@keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+
+/* MOBILE */
+@media(max-width:600px){
+  .hdr-in{gap:6px}
+  .logo-t p{display:none}
+  .tabs .tab{padding:5px 9px;font-size:11px}
+  .main{padding:10px 10px}
+  th,td{padding:6px 7px}
+  .sbox{min-width:70px;padding:5px 10px}
+  .sbox .v{font-size:14px}
+}
+
+/* PRINT */
+@media print{.hdr,.chips,.tb,.sstrip,.no-print{display:none!important}.card{box-shadow:none}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<!-- PWA INSTALL BANNER -->
+<div class="pwa-banner no-print" id="pwaBanner" style="display:none">
+  <span style="font-size:20px">📱</span>
+  <div style="flex:1"><strong>Instalar como App</strong><br>Acesse offline, direto da tela inicial</div>
+  <button onclick="installPWA()">Instalar</button>
+  <button onclick="document.getElementById('pwaBanner').style.display='none'" style="background:transparent;padding:5px">✕</button>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-in">
+    <div class="logo">📚</div>
+    <div class="logo-t"><h1>CEPI Marajó – Atividades</h1><p>2º Bimestre 2026</p></div>
+    <div class="sp"></div>
+    <div class="save-dot" id="saveDot" title="Status do salvamento"></div>
+    <div class="tabs" id="mainTabs">
+      <button class="tab on" onclick="setView('alunos')">👤 Alunos</button>
+      <button class="tab" onclick="setView('atividades')">📋 Atividades</button>
+      <button class="tab" onclick="setView('stats')">📊 Stats</button>
+      <button class="tab" onclick="setView('config')">⚙️ Config</button>
+    </div>
+    <button class="btn bg no-print" onclick="exportCSV()" style="font-size:11px;padding:6px 11px">⬇ CSV</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- SHEET BAR -->
+  <div class="card" style="margin-bottom:12px"><div class="chips" id="sheetBar"><span class="lbl">DISCIPLINA</span></div></div>
+
+  <!-- TURMA + STATS -->
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <div class="card" style="flex:1;min-width:180px"><div class="chips" id="turmaBar"><span class="lbl">TURMA</span></div></div>
+    <div class="sstrip" id="statsStrip"></div>
+  </div>
+
+  <!-- VIEWS -->
+  <div id="vAlunos"></div>
+  <div id="vAtividades" style="display:none"></div>
+  <div id="vStats" style="display:none"></div>
+  <div id="vConfig" style="display:none"></div>
+</div>
+
+<!-- MODAL NOVA ATIVIDADE -->
+<div class="mbg" id="mAtiv" style="display:none" onclick="if(event.target===this)cm('mAtiv')">
+<div class="modal">
+  <h2>➕ Nova Atividade</h2>
+  <div class="frow">
+    <div class="fg" style="flex:3"><label>NOME</label><input type="text" id="aNome" placeholder="Ex: Resumo Cap.5" /></div>
+    <div class="fg"><label>TIPO</label>
+      <select id="aTipo">
+        <option value="ativ">📝 Atividade</option>
+        <option value="simulado">📊 Simulado</option>
+        <option value="dirigido">📖 Est. Dirigido</option>
+        <option value="grupo">👥 Trab. Grupo</option>
+        <option value="seminario">🎤 Seminário</option>
+        <option value="prova">✏️ Avaliação</option>
+      </select>
+    </div>
+  </div>
+  <div class="frow">
+    <div class="fg"><label>DATA</label><input type="date" id="aData" /></div>
+    <div class="fg"><label>PESO</label><input type="number" id="aPts" value="1" min="0" max="10" step="0.5" /></div>
+  </div>
+  <div class="ma">
+    <button class="btn bs" onclick="cm('mAtiv')">Cancelar</button>
+    <button class="btn bp" onclick="addAtiv()">Adicionar</button>
+  </div>
+</div></div>
+
+<!-- MODAL IMPORTAR -->
+<div class="mbg" id="mImport" style="display:none" onclick="if(event.target===this)cm('mImport')">
+<div class="modal">
+  <h2>📋 Importar Lista de Alunos</h2>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Cole a lista — um nome por linha. Numeração é removida automaticamente.</p>
+  <div class="fg"><label>LISTA</label><textarea id="iLista" placeholder="1. ANA BEATRIZ SILVA&#10;2. CARLOS EDUARDO&#10;3. MARIA FERNANDA"></textarea></div>
+  <div style="font-size:11px;color:var(--muted);margin-top:4px" id="iCount">0 alunos detectados</div>
+  <div class="ma">
+    <button class="btn bs" onclick="cm('mImport')">Cancelar</button>
+    <button class="btn bp" onclick="confirmarImport()">Importar</button>
+  </div>
+</div></div>
+
+<!-- MODAL NOVO ALUNO -->
+<div class="mbg" id="mAluno" style="display:none" onclick="if(event.target===this)cm('mAluno')">
+<div class="modal">
+  <h2>👤 Adicionar Aluno</h2>
+  <div class="fg"><label>NOME COMPLETO</label><input type="text" id="alNome" placeholder="Nome do aluno" onkeydown="if(event.key==='Enter')confirmarAluno()" /></div>
+  <div class="ma">
+    <button class="btn bs" onclick="cm('mAluno')">Cancelar</button>
+    <button class="btn bp" onclick="confirmarAluno()">Adicionar</button>
+  </div>
+</div></div>
+
+<script>
+// ══════════════════════════════════════════════
+// DADOS ORIGINAIS (importados do Excel)
+// ══════════════════════════════════════════════
+const DADOS_ORIG = {"9º H":{"atividades":[{"nome":"Apresentação de seminário","tipo":"ativ","pontos":1,"data":""},{"nome":"resumo ERA VARGAS","tipo":"ativ","pontos":1,"data":""},{"nome":"Texto - Imperialismo","tipo":"ativ","pontos":1,"data":""},{"nome":"quadros imperialismo","tipo":"ativ","pontos":1,"data":""}],"turmas":{"9ºAno A":[{"nome":"ANA LÍVIA DE MELO SOARES","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":0,"caderno":0},{"nome":"ARTHUR VASCONCELOS NUNES","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":2.0,"caderno":0},{"nome":"ARYANE AUZIER SOUZA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":2.0,"extra":0,"caderno":0},{"nome":"ASHLEY JULIA DE PAIVA CABRAL","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":2.0,"caderno":0},{"nome":"BRAYAN ELLIOT DA COSTA MENDES","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":2.0,"caderno":0},{"nome":"DAVI MOREIRA DE FARIAS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"DÉBORA HADASSA FERREIRA COUTINHO","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"DHIENNY CHRISTINY DINIZ DOS SANTOS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"EMANOELLY DO AMARAL ALMEIDA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":1.0,"caderno":0},{"nome":"EMANUELLY DOS REIS MENEZES","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"GEOVANA FERNANDES MELO","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.5,"extra":0,"caderno":0},{"nome":"GIOVANNA SILVA SOUSA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"GUSTAVO ALEXANDRE RIBEIRO DE SOUTO","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"HANS DONNER DE JESUS CARVALHO","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO CARLOS GOMES LACERDA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"JUDITE SANTANA DOS SANTOS","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"JULIA FERNANDES MENDES","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":0,"caderno":0},{"nome":"KEMILLY YASMIN FERREIRA DE SOUSA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"LETÍCIA RUFINO DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"LORRANY ANCELMO DE OLIVEIRA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUÍZA FERREIRA MARTINS","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA RODRGUES DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MARÍA FERNANDA GOMES DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MARIA HELOIZA DOS SANTOS FREITAS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MIGUEL ANTÔNIO SOUZA CARVALHO","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MIQUEIAS COELHO DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.0,"extra":1.0,"caderno":0},{"nome":"RADIJA RODRIGUES SANTOS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"RODRIGO MELO DE LIMA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"SOPHIA VITÓRIA NEVES SANTANA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"WESLEY RAMOS DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":true,"seminario":1.5,"extra":0,"caderno":0},{"nome":"YASMIN VICTÓRIA DE BARRO SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":2.0,"caderno":0},{"nome":"RIKELMY PINHEIRO VISGUEIRA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":true},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"ELOÍSA DA SILVA RIBEIRO","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":1.0,"extra":0,"caderno":0}],"9º Ano C":[{"nome":"ANA CLARA DA CONCEIÇÃO FEITOSA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.5,"extra":0,"caderno":0},{"nome":"ANA PAULA SANTANA CARVALHO","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTONIO GUILHERME RODRIGUES CAVALCANTE","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"CESAR DAVID VELIZ SALAZAR","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":2.0,"extra":0,"caderno":0},{"nome":"DAVI ASAFE SILVA COSTA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":1.5,"extra":0,"caderno":0},{"nome":"DIEGO PEREIRA DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"EDUARDO MANOEL PEREIRA DA COSTA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"EMANUELLY SALES PERERIA LIRA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"GUSTAVO SHAKESPEARE RODRIGUES DOS SANTOS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":1.5,"extra":0.5,"caderno":0},{"nome":"IGOR INDRA DA COSTA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"ISADORA SILVA DOS SANTOS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IVAN PEDRO SANTANA ABREU","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"JAQUELINE VITÓRIA PEREIRA DA COSTA MUNIZ","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"JUAN DA COSTA E SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":1.5,"extra":0,"caderno":0},{"nome":"KALEB DOS SANTOS OLIVEIRA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":1.0,"extra":0,"caderno":0},{"nome":"KALINY VITÓRIA NUNES DA SILVA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LIDIA VITÓRIA FÉLIX ULHOA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":0.5,"extra":0,"caderno":0},{"nome":"LUIZ FELIPE SOUZA COSTA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":2.0,"extra":0,"caderno":0},{"nome":"LUIZ FELLIPE BISPO DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MARCOS DO ESPÍRITO SANTO PAIVA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCOS VINÍCIUS PEREIRA DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MARCUS VINICIUS SILVA CUNHA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA ANDRADE DE SOUZA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.5,"extra":0,"caderno":0},{"nome":"MARIA VITÓRYA PEREIRA SILVA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"MATEUS HENRIQUE COSTA RODRIGUES","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MAXUEL FERREIRA AZEVEDO DA SILVA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MELISSA ANDRADE SIMÃO","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MILENA DE JESUS FREITAS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"RONALD NEVES BARROS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.5,"extra":0,"caderno":0},{"nome":"SAMUEL VIEIRA DE OLIVEIRA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMYLA LORRANE RODRIGUES DE SOUSA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"THALITA ROSARIO SANTANA DOS SANTOS","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR HUGO COSTA ANDRADE","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"KAUAN DE SOUSA CASTRO GOMES","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA FERREIRA DIAS PEREIRA","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS FERREIRA DA SILVA DANTAS","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":true,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA BARCELAR DE SOUZA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"MARIA CLARA FREIRE DOS SANTOS","entregas":{"Apresentação de seminário":false,"resumo ERA VARGAS":false,"Texto - Imperialismo":false,"quadros imperialismo":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IAGO OLIVEIRA MATIAS","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":false,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0},{"nome":"JOSÉ MIZAEL RODRIGUES DA SILVA","entregas":{"Apresentação de seminário":true,"resumo ERA VARGAS":true,"Texto - Imperialismo":true,"quadros imperialismo":false},"prova":false,"seminario":1.0,"extra":0,"caderno":0}]}},"1ºF":{"atividades":[{"nome":"redação","tipo":"ativ","pontos":1,"data":""},{"nome":"Moral e Ética","tipo":"ativ","pontos":1,"data":""},{"nome":"questoes","tipo":"ativ","pontos":1,"data":""},{"nome":"livro 3 questoe","tipo":"ativ","pontos":1,"data":""}],"turmas":{"1° A":[{"nome":"ANNA REBECA BORGES TORRES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"AYLLA VICTORIA CAMPOS CAMARA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EDSON EVARISTO DE SOUSA SILVA JUNIOR","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EDUARDO ROMARIO DE ARAUJO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELDER RYAN MONTEIRO E SILVA SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMANUELLA VICTORIA DE CARVALHO DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ENDRIO YSLLAS MONTEIRO PIRES","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERICA ROBERTA DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GEOVANNA ROSA DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GRAZIELLY THAUANNY ROSÁRIO DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO BORGES BRITO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HELOIZA DOURADO DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"INGREDY LORRANY RODRIGUES DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELA MARQUES DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JENNYFER DA CUNHA FERREIRA DE CASTRO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA LIMA DE SOUSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAELEM DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KEMILLY LUIZA ROSA LEAL","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KÉSIA SILVA SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAURA LARISSA OLIVEIRA DE ALBUQUERQUE","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAURA VITORIA VASCONCELOS NUNES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LEANDRO AVELINO ALCANTARA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORRANY ARAÚJO DOS SANTES PEREIRA","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORRANY MONTEIRO DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCOS VINICIUS SANTOS COSTA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA LEAL DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA ALVES FERNANDES","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA JULIA BATISTA TORRES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL LIMA MENDES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL NUNES BALBINO RIBEIRO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"REBECA PEREIRA FARIAS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL ALVES XAVIER","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SARA VITÓRIA GOMES DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WESLEY LEÃO PINHEIRO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"1 B":[{"nome":"ADRIANA DA CONCEIÇÃO DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ÁGATHA SANTOS DE MORAES","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BIANCA GABRIELLY GUIMARÃES SILVA","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS EDUARDO AMORIM CAMPOS","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS EDUARDO DA SILVA ALMEIDA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI MATHEUS FERNANDES DA SILVA","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELIENESIS TIBIZAY ESPINOZA GUACARAN","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELISA LOREN NUNES DA SILVA","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMANUELLA DUTRA DE SOUSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ESTHER SOUZA MARTINS","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IGOR ROBERTO CASTRO FERNANDES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHULY VITÓRIA RIBEIRO SANTOS","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GUILHERME ALVES LIMA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOILSON JESUS DA SILVA","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KEVEN ANSELMO MIRANDA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA BEATRIZ BENTO DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARISSA NASCIMENTO DA COSTA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA GONÇALVES DE SOUZA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL SILVA SOLIMÕES","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIRIA DOS SANTOS FERREIRA SANTANA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MURILO GOMES VELOZO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"NIKOLAS GABRIEL SANTOS LUSTOSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PALOMA MARTINS OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PÂMELA DOS SANTOS CHAGAS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE DA SILVA RODRIGUES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO PAULO SANTOS DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PIETRO RAEL MOURA DE FARIAS","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAQUEL TEIXEIRA DOS SANTOS SILVA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RENAN DE OLIVEIRA SANTOS","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMIRA VITÓRIA SILVA DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SOPHIA PARENTE DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"STEFANNY SANTOS OLIVEIRA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"TAINARA PEREIRA DA CONCEIÇAO","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIAGO SANTOS VIEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VITOR MARIANO FERNANDES SILVA","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VITÓRIA RAMOS DOS SANTOS MENEZES","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA SOUSA DE OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GABRIEL MUNIZ DE JESUS","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA ALVES SOUSA NASCIMENTO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"1C":[{"nome":"ALLAN VICTOR GOMES MACEDO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR FERNANDES DA SILVA GONÇALVES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR WILLY SILVA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ASHELEY VITORIA SALES SOUSA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRENDA VITÓRIA BATISTA DA SILVA","entregas":{"redação":true,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS EDUARDO LIMA NASCIMENTO","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CIBELLE LOPES DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":10.0,"caderno":0},{"nome":"DERICK PIETRO DE OLIVEIRA SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EDUARDO HENRIQUE MOTA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELAINE CRISTINA GOMES CARVALHO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELISDELSON DOS SANTOS BARBOSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELLEN CAVALCANTE DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GABRIEL MUNIZ DE JESUS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FELIPE LISBOA COELHO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDA PEREIRA BARBOSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUILHERME HENRIQUE DE SOUZA","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HÁGATA LOPES DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HELTHON DA SILVA SANTOS","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ICARO SAMUEL DOS SANTOS OLIVEIRA","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISTEPHANY ROCHA CARDOSO LEAL","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GABRYEL SILVA NASCIMENTO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO PEDRO SOUSA LIMA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA DA SILVA MENDES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUANA VITÓRIA PEREIRA DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KYARA PEREIRA BARBOSA MARQUES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA VICTORIA INACIO LIMA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAURA VITORIA VASCONCELOS NUNES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS DOS SANTOS DE AQUINO","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS VINICIUS DE ALMEIDA EVANGELISTA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCELLE DE CASTRO SOUZA DINIZ NETO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA ALICE CRUZ DOS ANJOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUIZA SILVA MIRANDA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL RODRIGUES DE FREITAS","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MILLENA LENINA DOS SANTOS BATISTA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YOHANA CARVALHO DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BEATRIZ VITORIA MOREIRA MELO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOSÉ EDSON DE SOUSA SOARES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUIZA CASTRO DO LAGO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MOISES SOUSA LIMA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"1D":[{"nome":"ALEX RANIERI ALVES RIBEIRO","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANDRESSA NEVES DA SILVA SOARES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTONIO GABRIEL CRUZ SILVA","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTUR MENDES DO NASCIMENTO","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI FERREIRA DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ÉRICK PABLO DOS REIS MENEZES","entregas":{"redação":true,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ESTER LAUANDA DIAS FERREIRA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIEL ALEJANDRO GONZALEZ MARTINEZ","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIEL DE SOUZA BASTOS DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GISELY DE OLIVEIRA MARCOLINO","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO BATISTA DE OLIVEIRA","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO PEREIRA SILVA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HYAN EMANOEL BRITO DE SOUZA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IARA BEATRIZ SOUZA BARROS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOSÉ ARMANDO ALVES DE OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA DA SILVA SANTOS","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAR MICHAEL RODRIGUES LOPES","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUÊ PEREIRA DA CONCEIÇÃO","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KEILY NAZARETH ARCIA ARCIA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KETLIN CRISTINA ANUNCIAÇÃO OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETÍCIA DE ALMEIDA SILVA","entregas":{"redação":false,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCOS VINÍCIUS PEREIRA ALMEIDA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA ARAGÃO LIMA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIAH EDUARDA GONÇALVES DA SILVA RODRIGUES","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANGEL ARANZA ISSA MARTINEZ CARDOZO","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PAULO HENRIQUE RAMOS PORTUGAL","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE BATISTA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"REYANNE ROCHA DE ARAUJO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMARA VICTÓRIA MENDONÇA DE MELO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL BRAYAN BARBOSA BRITO","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SOPHIA SOUZA SILVA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAMARA SOUSA NASCIMENTO","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"TONI GABRIEL RODRIGUES SENA","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VANESSA DA SILVA CELESTINO","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR HUGO SILVA CUNHA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WALYSON DE SOUZA SILVA","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WESLEY VINÍCIUS RAMOS SÁ","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIN PACHECO SOARES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMYLI KARINE RAMOS LINHARES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JAQUELINE DE OLIVEIRA MARCOLINO","entregas":{"redação":true,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PÂMELA DOS SANTOS CHAGAS","entregas":{"redação":true,"Moral e Ética":true,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"EFG - 1A":[{"nome":"ANA BEATRIZ SILVA FREIRES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA JÚLIA DOS SANTOS SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA LUISA DA SILVA PIMENTEL","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA PAULLYNA DE FRAÇA SOUSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTHONY GABRIELL NEIVA BARROS","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR DA SILVA SANTOS","entregas":{"redação":false,"Moral e Ética":true,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BEATRIZ MARTINS VIEIRA SOUSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRUNA VIEIRA DA SILVA COSTA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CALEBE LOPES COSTA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI ASSUNÇÃO RODRIGUES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EDUARDO KALEB ANJOS LOPES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMANUELE DE ASSIS GOMES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERIC BARBOSA CARDOSO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ESTER RODRIGUES NASCIMENTO BRITO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDO GONÇALVES BORGES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDO GUILHERME GOMES DO NASCIMENTO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIELLE REIS DE ALBUQUERQUE","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GIOVANNA MEL SILVA FREIRES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA CHRISTINE DA CONCEICAO SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISADORA ALVES DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHONATAN MIGUEL DE FREITAS MOURA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOEL FELIPE DE ARAÚJO RESENDE","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUAN BRYAN RODRIGUES DE MELO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETÍCIA NAZEOZENO DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORENA MOREIRA SOUSA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS DA SILVA OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ PHELIPE FERREIRA MATIAS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA MARIANO NUNES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA SOPHIA RAMALHO DE PAULA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA ELIZABETH MARIANO MESQUITA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MATEUS XAVIER RIBEIRO","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE DOS SANTOS OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PIETRO MARTINS GOMES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAYLANE KELLY DE MELO SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SABRINA RIBEIRO CHAVES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ÁGATHA MARQUES DA SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"EFG- 1 B":[{"nome":"ADRYAN RAPHAEL RODRIGUES BRITO DE ALMEIDA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ALÍCIA MANERICH CARVALHO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA GUEDES CRUZEIRO DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA LUCINDA LUIZ","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA JULYA LUCIANO DO NASCIMENTO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA LUIZA DOS SANTOS PEREIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTÔNIO CARLOS ALENCAR PEREIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR DA SILVA ROCHA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR FREDERICK DOS REIS ABREU","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR LIMA DOS SANTOS NUNES","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CECYLLIA STHER RIBEIRO LOUZAS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DHAVI LUIZ BARRETO LIMA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FENANDA LIMA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GILMAR ALMEIDA DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO AURINO PEREIRA SABIÁ","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IAGO ÍTALO NUNES DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA ROCHA VIEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ITALO CESAR FRANÇA DE CASTRO OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GABRIEL CHAVES GOMES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JUAN RIQUELME NASCENTES SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA ANDRADE NOGUEIRA ROCHA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KELLY MAGANO SATELO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAILLA NUNES OLIVEIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS RODRIGUES FERREIRA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ FELIPE LIMA BARBOSA DOS SANTOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA ANDRADE REIS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA PAIVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUIZA APARECIDA DA SILVA DELMIRO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MYKAEL DE OLIVEIRA GRUNDLER","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL MOREIRA SALES","entregas":{"redação":false,"Moral e Ética":false,"questoes":true,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAWANNY KAMYLLE SILVA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIFANNY VITORIA FERREIRA DOS ANJOS","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR LUCAZ VAZ","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR NATHAN ALVES RODRIGUES DE SOUZA","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VÍCTOR OTÁVIO BARBOSA RIBEIRO","entregas":{"redação":false,"Moral e Ética":false,"questoes":false,"livro 3 questoe":false},"prova":false,"seminario":0,"extra":0,"caderno":0}]}},"1ºH":{"atividades":[{"nome":"9,10 e 11","tipo":"ativ","pontos":1,"data":""},{"nome":"pag 14 e 19(4)","tipo":"ativ","pontos":1,"data":""},{"nome":"pag 22 e 23 (4)","tipo":"ativ","pontos":1,"data":""},{"nome":"oriente proximo","tipo":"ativ","pontos":1,"data":""},{"nome":"pg 41 e 44","tipo":"ativ","pontos":1,"data":""}],"turmas":{"1ºA":[{"nome":"ANA BEATRIZ SILVA FREIRES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA JÚLIA DOS SANTOS SILVA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA LUISA DA SILVA PIMENTEL","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA PAULLYNA DE FRAÇA SOUSA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTHONY GABRIELL NEIVA BARROS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR DA SILVA SANTOS","entregas":{"9,10 e 11":true,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":true,"pg 41 e 44":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BEATRIZ MARTINS VIEIRA SOUSA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRUNA VIEIRA DA SILVA COSTA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CALEBE LOPES COSTA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI ASSUNÇÃO RODRIGUES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":true,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EDUARDO KALEB ANJOS LOPES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMANUELE DE ASSIS GOMES","entregas":{"9,10 e 11":true,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":true,"pg 41 e 44":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERIC BARBOSA CARDOSO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ESTER RODRIGUES NASCIMENTO BRITO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDO GONÇALVES BORGES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDO GUILHERME GOMES DO NASCIMENTO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIELLE REIS DE ALBUQUERQUE","entregas":{"9,10 e 11":true,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GIOVANNA MEL SILVA FREIRES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA CHRISTINE DA CONCEICAO SILVA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISADORA ALVES DA SILVA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHONATAN MIGUEL DE FREITAS MOURA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOEL FELIPE DE ARAÚJO RESENDE","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUAN BRYAN RODRIGUES DE MELO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETÍCIA NAZEOZENO DE SOUZA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORENA MOREIRA SOUSA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS DA SILVA OLIVEIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ PHELIPE FERREIRA MATIAS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA MARIANO NUNES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA SOPHIA RAMALHO DE PAULA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA ELIZABETH MARIANO MESQUITA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":true,"pg 41 e 44":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MATEUS XAVIER RIBEIRO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE DOS SANTOS OLIVEIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PIETRO MARTINS GOMES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAYLANE KELLY DE MELO SOUZA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SABRINA RIBEIRO CHAVES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ÁGATHA MARQUES DA SILVA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"1 B":[{"nome":"ADRYAN RAPHAEL RODRIGUES BRITO DE ALMEIDA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ALÍCIA MANERICH CARVALHO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA GUEDES CRUZEIRO DE SOUZA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA LUCINDA LUIZ","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA JULYA LUCIANO DO NASCIMENTO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA LUIZA DOS SANTOS PEREIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTÔNIO CARLOS ALENCAR PEREIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR DA SILVA ROCHA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR FREDERICK DOS REIS ABREU","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR LIMA DOS SANTOS NUNES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CECYLLIA STHER RIBEIRO LOUZAS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DHAVI LUIZ BARRETO LIMA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FENANDA LIMA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GILMAR ALMEIDA DOS SANTOS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO AURINO PEREIRA SABIÁ","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IAGO ÍTALO NUNES DOS SANTOS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA ROCHA VIEIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ITALO CESAR FRANÇA DE CASTRO OLIVEIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GABRIEL CHAVES GOMES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JUAN RIQUELME NASCENTES SANTOS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA ANDRADE NOGUEIRA ROCHA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KELLY MAGANO SATELO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAILLA NUNES OLIVEIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS RODRIGUES FERREIRA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ FELIPE LIMA BARBOSA DOS SANTOS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA ANDRADE REIS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA PAIVA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUIZA APARECIDA DA SILVA DELMIRO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MYKAEL DE OLIVEIRA GRUNDLER","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL MOREIRA SALES","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAWANNY KAMYLLE SILVA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIFANNY VITORIA FERREIRA DOS ANJOS","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR LUCAZ VAZ","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR NATHAN ALVES RODRIGUES DE SOUZA","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VÍCTOR OTÁVIO BARBOSA RIBEIRO","entregas":{"9,10 e 11":false,"pag 14 e 19(4)":false,"pag 22 e 23 (4)":false,"oriente proximo":false,"pg 41 e 44":false},"prova":false,"seminario":0,"extra":0,"caderno":0}]}},"2ºF":{"atividades":[{"nome":"racionalidade moderna - quadro","tipo":"ativ","pontos":1,"data":""},{"nome":"metodo cientifico","tipo":"ativ","pontos":1,"data":""},{"nome":"pag 66","tipo":"ativ","pontos":1,"data":""}],"turmas":{"2 A":[{"nome":"ANA LUIZA LIMÃ DE SOUSA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA PAULA NUNES MARQUES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BEATRIZ ALVES DE LIMA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BYANCA ADASSAH RIBEIRO SILVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS HENRIQUE SILVA DE BRITO","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DANIELY CRISTINY DA SILVA DOS SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERIC FERNANDO MOURA RODRIGUES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FELIPE MORAES PACHÊCO","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDA PEREIRA DA SILVA MOURA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HEVELLYN BRUNA ALVES DOS SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HUGO DE SÁ COSTA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA DAMASCENO LOPES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA DANTAS PAIVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAILLANY DE SOUZA MARQUES BARBOZA SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUÃ APOLÔNIO LOPES ALECRIM","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETICIA OLIVEIRA RAMOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ GUILHERME DA ANUNCIAÇÃO SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCUS VINICIUS DA SILVA CAETANO","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA DOS SANTOS ALVES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA GREGÓRIO FONSECA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA JACOBINA DE SOUZA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA BORGES DA CUNHA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARINA GOMES DA PAIXÃO","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MAURÍCIO CUNHA DE SOUZA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL SANTOS DE MORAIS","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE JACOB FERREIRA RAMOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAIANE RODRIGUES DA SILVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"REINAN ARTHUR MOTA LEITE","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL LUCAS FARIAS GOMES DA SILVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"STEFFANY GABRIELLY SOARES AMORIM","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THÁLIS SILVA OLIVEIRA DE SOUZA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VINÍCIUS DE SÁ COSTA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WALISSON GABRIEL SAMPAIO ROSA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WESLEY RAMOS ALMEIDA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YURI GUSTAVO ROCHA DA SILVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"2B":[{"nome":"ALISON RODRIGUES CARVALHO MARQUES","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA DA SILVA GONÇALVES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA VITÓRIA ALVES VIEIRA DOS SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR CORREIA DE ANDRADE","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR FILLIPE MARQUES ALVES","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS ALEXANDRE DA SILVA FONTENELE","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI DE PAIVA SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMILLY BEATRIZ PERÔNICO DOS REIS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUILHERME FERREIRA DUARTE","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HIARLES RIBEIRO DA SILVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHEMILE VITÓRIA SOUSA GOMES","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA CARVALHO SAMPAIO","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAROLAINE SOARES DE OLIVEIRA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUANY GUILHERME BORGES DA SILVA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUANA DE ARAÚJO DA COSTA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS DE OLIVEIRA NUNES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIS HENRIQUE LIMA BARBOSA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCELLA RODRIGUES DANTAS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCOS VINICIUS DO NASCIMENTO PAULINO BENEVIDES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA DA GRAÇA VIEIRA GONÇALVES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA PEREIRA MARQUES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL VINICIUS MARQUES DE FREITAS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"NATHAN JUNIOR SANTANA FRANÇA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PAULO HENRIQUE DA SILVA BRITO","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE VIEIRA ARAUJO","entregas":{"racionalidade moderna - quadro":true,"metodo cientifico":true,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO OLIVEIRA NUNES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PIETRO CARVALHO FRANCA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SABRINA VITÓRIA GONÇALVES DE SOUZA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMIRA GERMANO SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"STEFHANY LORRANY DOS SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VINÍCIUS LEONARDO CABRAL DE AQUINO","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YAGO CIPRIANO FÉLIX","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIM DA SILVA SANTOS","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIN FORTUNATO DE OLIVEIRA","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIN SOARES UCHOA ALVES","entregas":{"racionalidade moderna - quadro":false,"metodo cientifico":false,"pag 66":false},"prova":false,"seminario":0,"extra":0,"caderno":0}]}},"2º H":{"atividades":[{"nome":"pag 109","tipo":"ativ","pontos":1,"data":""},{"nome":"pag 110 e 111","tipo":"ativ","pontos":1,"data":""},{"nome":"180, 181","tipo":"ativ","pontos":1,"data":""},{"nome":"184 e186","tipo":"ativ","pontos":1,"data":""},{"nome":"188 e 190","tipo":"ativ","pontos":1,"data":""},{"nome":"crise no antigo regime","tipo":"ativ","pontos":1,"data":""}],"turmas":{"2 A":[{"nome":"ANA LUIZA LIMÃ DE SOUSA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA PAULA NUNES MARQUES","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BEATRIZ ALVES DE LIMA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BYANCA ADASSAH RIBEIRO SILVA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS HENRIQUE SILVA DE BRITO","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DANIELY CRISTINY DA SILVA DOS SANTOS","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERIC FERNANDO MOURA RODRIGUES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FELIPE MORAES PACHÊCO","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDA PEREIRA DA SILVA MOURA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HEVELLYN BRUNA ALVES DOS SANTOS","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HUGO DE SÁ COSTA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA DAMASCENO LOPES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA DANTAS PAIVA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAILLANY DE SOUZA MARQUES BARBOZA SANTOS","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUÃ APOLÔNIO LOPES ALECRIM","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETICIA OLIVEIRA RAMOS","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ GUILHERME DA ANUNCIAÇÃO SANTOS","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCUS VINICIUS DA SILVA CAETANO","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA DOS SANTOS ALVES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA GREGÓRIO FONSECA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA JACOBINA DE SOUZA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA BORGES DA CUNHA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARINA GOMES DA PAIXÃO","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MAURÍCIO CUNHA DE SOUZA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL SANTOS DE MORAIS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE JACOB FERREIRA RAMOS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAIANE RODRIGUES DA SILVA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"REINAN ARTHUR MOTA LEITE","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL LUCAS FARIAS GOMES DA SILVA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"STEFFANY GABRIELLY SOARES AMORIM","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THÁLIS SILVA OLIVEIRA DE SOUZA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VINÍCIUS DE SÁ COSTA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WALISSON GABRIEL SAMPAIO ROSA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WESLEY RAMOS ALMEIDA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YURI GUSTAVO ROCHA DA SILVA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"2B":[{"nome":"ALISON RODRIGUES CARVALHO MARQUES","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":true,"184 e186":true,"188 e 190":true,"crise no antigo regime":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA DA SILVA GONÇALVES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA VITÓRIA ALVES VIEIRA DOS SANTOS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR CORREIA DE ANDRADE","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR FILLIPE MARQUES ALVES","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS ALEXANDRE DA SILVA FONTENELE","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI DE PAIVA SANTOS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMILLY BEATRIZ PERÔNICO DOS REIS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUILHERME FERREIRA DUARTE","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HIARLES RIBEIRO DA SILVA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHEMILE VITÓRIA SOUSA GOMES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA CARVALHO SAMPAIO","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAROLAINE SOARES DE OLIVEIRA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUANY GUILHERME BORGES DA SILVA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUANA DE ARAÚJO DA COSTA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS DE OLIVEIRA NUNES","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIS HENRIQUE LIMA BARBOSA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCELLA RODRIGUES DANTAS","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":true,"184 e186":true,"188 e 190":true,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARCOS VINICIUS DO NASCIMENTO PAULINO BENEVIDES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA DA GRAÇA VIEIRA GONÇALVES","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA PEREIRA MARQUES","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MIGUEL VINICIUS MARQUES DE FREITAS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"NATHAN JUNIOR SANTANA FRANÇA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PAULO HENRIQUE DA SILVA BRITO","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE VIEIRA ARAUJO","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":true,"184 e186":true,"188 e 190":true,"crise no antigo regime":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO OLIVEIRA NUNES","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PIETRO CARVALHO FRANCA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SABRINA VITÓRIA GONÇALVES DE SOUZA","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMIRA GERMANO SANTOS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"STEFHANY LORRANY DOS SANTOS","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":true,"184 e186":true,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VINÍCIUS LEONARDO CABRAL DE AQUINO","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YAGO CIPRIANO FÉLIX","entregas":{"pag 109":true,"pag 110 e 111":false,"180, 181":false,"184 e186":true,"188 e 190":false,"crise no antigo regime":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIM DA SILVA SANTOS","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIN FORTUNATO DE OLIVEIRA","entregas":{"pag 109":false,"pag 110 e 111":false,"180, 181":false,"184 e186":false,"188 e 190":false,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIN SOARES UCHOA ALVES","entregas":{"pag 109":true,"pag 110 e 111":true,"180, 181":true,"184 e186":false,"188 e 190":true,"crise no antigo regime":false},"prova":false,"seminario":0,"extra":0,"caderno":0}]}},"3ºF":{"atividades":[{"nome":"produção de texto","tipo":"ativ","pontos":1,"data":""},{"nome":"legitimmidade do poder","tipo":"ativ","pontos":1,"data":""},{"nome":"questões caderno + pag 174","tipo":"ativ","pontos":1,"data":""},{"nome":"debate - democracia","tipo":"ativ","pontos":1,"data":""}],"turmas":{"3ºA - EFG":[{"nome":"ANNA LUÍSA ROQUE DA CUNHA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRUNO VINICIUS DE OLIVEIRA SA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS EDUARDO ARAÚJO RANGEL DE JESUS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CAROLINE OLIVEIRA NUNES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CECILIA LOPES COSTA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CLARA TIFANNY SILVA CASTRO","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FABRYCIO FERREIRA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FLAVIO EDUARDO SANTOS DE ABREU","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIEL OLIVEIRA DE MELO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GEOVANNA ORTIZ CAVALCANTE MAGALHÃES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GIOVANA VIEIRA JANUÁRIO","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO RHUAN DA SILVA REIS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HEITOR FREDERICK DOS REIS ABREU","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISRAEL HENRIQUE MACEDO DE MOURA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JANAINA ARAUJO PAIVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO VITOR COSTA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JUAN AUGUSTO FERREIRA SENA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA MANERICH CARVALHO","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIANA PORTELA ALVES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KÉVILLA LAYLA DE BRITO BARBOSA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA BARRETO DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAYSA DE ARAUJO COSTA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ GUILHERME SOUZA DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MATEUS DE FREITAS SOUSA LOPES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MATEUS SOUSA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMARA RODRIGUES NERI","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SARAH MARINA MOURA GUEDES","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SEPHORA BASALI BANDENONGA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAYNA ALVES DO NASCIMENTO COSTA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIAGO SOUSA LOPES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"YASMIN EVELYN DA SILVA PEREIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"3B":[{"nome":"AMANDA SILVA SANTANA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA FRANCISCA DOS SANTOS MARQUES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANDERSON GABRIEL NOGUEIRA DE ALMEIDA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANNA CLARA MEIRELES DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS EDUARDO FERREIRA DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DANIEL ROCHA DE SOUZA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DANIEL TAVARES SOUSA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMILY DA SILVA NASCIMENTO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERIKA FERREIRA DE SOUSA ALMEIDA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIEL DE JESUS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIEL VITOR GUEDES DE OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIELY VITÓRIA FELIX DE SOUZA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUILHERME MOREIRA EDWARDS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HEITOR CARVALHO FERREIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HELOISA DA SILVA OLIVEIRA SOUSA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISAAC DANIEL GRANGEIRO DE OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLE MACEDO DOS ANJOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IVAN KLEBER DE CASTRO OLIVEIRA JUNIOR","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHENYFER KRISTYNNY FALCAO DE SOUZA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOYCE CRISTINE GUEDES OLIVEIRA SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KEVIN KAUAN ARAUJO SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORENA CASTRO DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MAYCKON DOUGLAS DE PINHO OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"NATALY VITORIA CORREIA HONORATO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RIQUELME GONÇALVES DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL LIMA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL LUCAS GUEDES CRUZEIRO VAZ","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SARAH MARIELE OLIVEIRA DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"TAYLA VITORIA CORREIA MARTINS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAINÁ SANTOS ALENCAR","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VITORIA DA SILVA SOUSA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WILLIAM JERONIMO DE SOUSA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"3C":[{"nome":"DANIEL PEREIRA DE LIMA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI ARAUJO RIBEIRO MOURA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI PONCIANO ROSAL PEREIRA DA CRUZ","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DEBORA CRISTINA COSTA DE PINHO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DEBORA CRISTINA EUGENIO DE SOUZA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DEIVID RODRIGUES SANTOS OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMILY DE OLIVEIRA LIMA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ÉRICK RAFAEL FARIA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GIOVANNA DE OLIVEIRA LOPES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO FERREIRA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IAGO QUEIROZ DE MACEDO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"INGRID VITORIA BARBOSA REIS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISAAC FERNANDES DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOAO EDEN RODRIGUES DA FONSECA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOAO VICTOR CARVALHO SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUA DA SILVA MACIEL","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KIMBERLY HIASMIN OHARA BARBOZA SOUZA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA MILARINDO SOARES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LEONARDO RIBEIRO CRUZ","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LIZ NUNES ROIG CAVALCANTE","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ MIGUEL SENA DE LIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MANUELLA FERREIRA DO NASCIMENTO","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA SOUZA BOMFIM","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MILLENA FOGACA ALVES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE CAMPOS GONÇALVES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PRICILA OLIVEIRA DA SILVA VILA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SOPHIA MOREIRA LOUZAS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAYLA ALVES DE MATOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR SILVA DE OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VIVIAN PEREIRA LIMA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"3A- sede":[{"nome":"ANNA BEATRIZ RODRIGUES SILVA","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANNA JÚLIA ALVES MARTINS","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTONIO LUAN DE ARAÚJO SOARES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CARLOS VICTOR ALVES DE ARAUJO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CESAR SEBASTIAN MARCANO GUATARASMA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DANIEL BRAYAN ALVES DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI RIBEIRO SOARES","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ELOÁ RAFAELE NUNES RIBEIRO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FAUSTO LUIZ FORNAZIER NETO","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIEL MARQUES DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HAYSSA RODRIGUES AGUIAR","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISAAC DOS SANTOS MIRANDA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JENIFER RODRIGUES BRITO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KALEBE SANTOS SILVA","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUÃ MURILO RODRIGUES DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUANY MEDEIROS DA SILVA","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KENY JOSE ARCIA ARCIA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KEVNA KAYLANNA OLIVEIRA DINIZ","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA BEATRIZ DE OLIVEIRA MORAIS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA VITÓRIA ANTUNES MEDEIROS","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETÍCIA SOUZA PEREIRA DE ARAÚJO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LHOURRANY EVILY DA SILVA RODRIGUES","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORENA DOS SANTOS SOUSA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA FERREIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA SANTOS DA SILVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUIZA DOS SANTOS CARVALHO LIMA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUÍZA NASCIMENTO APOLINARIO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"NADIELY LORRANY MENDES FERREIRA","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE COSTA DE SOUZA","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO IVO DOS SANTOS MARQUES","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAQUEL RIBEIRO DE ALCÂNTARA","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SARA FERREIRA ALENCAR","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"STHEFANE SOUSA DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THALISSON ALVES PEREIRA DOS SANTOS","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VITORIA GUARIM DA SILVA","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":true,"debate - democracia":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WILLIAM DANIEL DA SILVA BRITO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"3B - MARAJÓ":[{"nome":"ALINE DA SILVA GOMES CEZAR","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA BEATRIZ DOS SANTOS MARANHÃO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA SANTIAGO SOARES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA KELLY DE JESUS SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA PAULA AMORIM DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR GABRIEL SOARES DE SOUZA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRUNO GUILHERME SOUSA MACÊDO","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIELLY PAOLA ALMEIDA MESQUITA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"HEMILLY MIKELE VIANA MOURA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISAQUE OLIVEIRA NASCIMENTO","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIANA KETLLEY COLACIO DE SALES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAROLAYNE WALITA SILVA DA CONCEIÇÃO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KEREN LAYS ALVES DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KETLEN CRISTINA LIMA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KHALLEL JEFFERSON ARAUJO VIEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARA DE SOUZA VERDEIRO","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LARISSA MONTEIRO DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LEONICE DA SILVA RIBEIRO","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA DA SILVA BIZERRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA JULIA DE SOUZA RIBEIRO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA ESTER PEREIRA DOS SANTOS","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO EMANUEL SOARES DA CRUZ VIEIRA","entregas":{"produção de texto":true,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAFAEL FERREIRA NUNES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAFAEL SILVA DOS SANTOS","entregas":{"produção de texto":true,"legitimmidade do poder":true,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL PACHECO SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIAGO HENRIQUE TAVARES PEREIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIAGO MICHEL RAMOS BERNARDO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VERA LUCIA MARTINS DE ALBUQUERQUE","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR RODRIGUES SIQUEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VÍTOR BORGES ALMEIDA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"WENDEL RAFAEL MUNIZ DE OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":true,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CAROLINA TEIXEIRA DE SOUSA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PABLO RYAN RODRIGUES DE OLIVEIRA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MAISA TAVARES RUFINO","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRYAN SANTOS DE MORAES","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDA GUEIRA DA SILVA","entregas":{"produção de texto":false,"legitimmidade do poder":false,"questões caderno + pag 174":false,"debate - democracia":false},"prova":false,"seminario":0,"extra":0,"caderno":0}]}},"1º S":{"atividades":[{"nome":"Pag 13 e 16","tipo":"ativ","pontos":1,"data":""},{"nome":"individuo e sociedade","tipo":"ativ","pontos":1,"data":""},{"nome":"pag 44 e 45","tipo":"ativ","pontos":1,"data":""}],"turmas":{"1ºA":[{"nome":"ANA BEATRIZ SILVA FREIRES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA JÚLIA DOS SANTOS SILVA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA LUISA DA SILVA PIMENTEL","entregas":{"Pag 13 e 16":true,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA PAULLYNA DE FRAÇA SOUSA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTHONY GABRIELL NEIVA BARROS","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR DA SILVA SANTOS","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BEATRIZ MARTINS VIEIRA SOUSA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"BRUNA VIEIRA DA SILVA COSTA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CALEBE LOPES COSTA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DAVI ASSUNÇÃO RODRIGUES","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EDUARDO KALEB ANJOS LOPES","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"EMANUELE DE ASSIS GOMES","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ERIC BARBOSA CARDOSO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ESTER RODRIGUES NASCIMENTO BRITO","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDO GONÇALVES BORGES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FERNANDO GUILHERME GOMES DO NASCIMENTO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GABRIELLE REIS DE ALBUQUERQUE","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GIOVANNA MEL SILVA FREIRES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA CHRISTINE DA CONCEICAO SILVA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISADORA ALVES DA SILVA","entregas":{"Pag 13 e 16":true,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JHONATAN MIGUEL DE FREITAS MOURA","entregas":{"Pag 13 e 16":true,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOEL FELIPE DE ARAÚJO RESENDE","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KAUAN BRYAN RODRIGUES DE MELO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LETÍCIA NAZEOZENO DE SOUZA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LORENA MOREIRA SOUSA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS DA SILVA OLIVEIRA","entregas":{"Pag 13 e 16":true,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ PHELIPE FERREIRA MATIAS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA MARIANO NUNES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA SOPHIA RAMALHO DE PAULA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIANA ELIZABETH MARIANO MESQUITA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MATEUS XAVIER RIBEIRO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":true},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PEDRO HENRIQUE DOS SANTOS OLIVEIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"PIETRO MARTINS GOMES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"RAYLANE KELLY DE MELO SOUZA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SABRINA RIBEIRO CHAVES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ÁGATHA MARQUES DA SILVA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0}],"1 B":[{"nome":"ADRYAN RAPHAEL RODRIGUES BRITO DE ALMEIDA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ALÍCIA MANERICH CARVALHO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA GUEDES CRUZEIRO DE SOUZA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA CLARA LUCINDA LUIZ","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA JULYA LUCIANO DO NASCIMENTO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANA LUIZA DOS SANTOS PEREIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ANTÔNIO CARLOS ALENCAR PEREIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR DA SILVA ROCHA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR FREDERICK DOS REIS ABREU","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ARTHUR LIMA DOS SANTOS NUNES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"CECYLLIA STHER RIBEIRO LOUZAS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"DHAVI LUIZ BARRETO LIMA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"FENANDA LIMA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GILMAR ALMEIDA DOS SANTOS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"GUSTAVO AURINO PEREIRA SABIÁ","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"IAGO ÍTALO NUNES DOS SANTOS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ISABELLA ROCHA VIEIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"ITALO CESAR FRANÇA DE CASTRO OLIVEIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JOÃO GABRIEL CHAVES GOMES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JUAN RIQUELME NASCENTES SANTOS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"JULIA ANDRADE NOGUEIRA ROCHA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"KELLY MAGANO SATELO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LAILLA NUNES OLIVEIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUCAS RODRIGUES FERREIRA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"LUIZ FELIPE LIMA BARBOSA DOS SANTOS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA CLARA ANDRADE REIS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA EDUARDA PAIVA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MARIA LUIZA APARECIDA DA SILVA DELMIRO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"MYKAEL DE OLIVEIRA GRUNDLER","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"SAMUEL MOREIRA SALES","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THAWANNY KAMYLLE SILVA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"THIFANNY VITORIA FERREIRA DOS ANJOS","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR LUCAZ VAZ","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VICTOR NATHAN ALVES RODRIGUES DE SOUZA","entregas":{"Pag 13 e 16":false,"individuo e sociedade":false,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0},{"nome":"VÍCTOR OTÁVIO BARBOSA RIBEIRO","entregas":{"Pag 13 e 16":false,"individuo e sociedade":true,"pag 44 e 45":false},"prova":false,"seminario":0,"extra":0,"caderno":0}]}}};
+
+// ══════════════════════════════════════════════
+// CONFIGURAÇÃO PADRÃO DE PESOS
+// ══════════════════════════════════════════════
+const CFG_DEFAULT = {
+  pesoAtiv: 0.75,      // por atividade entregue
+  pesoProva: 2.25,     // presença/nota na prova
+  pesoSeminario: 1,    // seminário (editável por aluno)
+  pesoExtra: 1,        // extra (editável por aluno)
+  pesoCaderno: 1,      // caderno (editável por aluno)
+  notaAprovacao: 7,
+  notaRecuperacao: 5,
+};
+
+// ══════════════════════════════════════════════
+// CONFIGS DE EXIBIÇÃO POR DISCIPLINA
+// ══════════════════════════════════════════════
+const SHEET_CFG = {
+  '9º H': {label:'9º Ano – História',    cor:'#1a6b8a',emoji:'📜'},
+  '1ºF':  {label:'1ª Série – Filosofia', cor:'#7c3aed',emoji:'🧠'},
+  '1ºH':  {label:'1ª Série – História',  cor:'#2563eb',emoji:'📜'},
+  '2ºF':  {label:'2ª Série – Filosofia', cor:'#9333ea',emoji:'🧠'},
+  '2º H': {label:'2ª Série – História',  cor:'#0891b2',emoji:'📜'},
+  '3ºF':  {label:'3ª Série – Filosofia', cor:'#6d28d9',emoji:'🧠'},
+  '1º S': {label:'1ª Série – Sociologia',cor:'#c45a1a',emoji:'🌍'},
+};
+
+const TIPO = {
+  ativ:     {label:'Atividade',    emoji:'📝',cor:'#3b82f6'},
+  simulado: {label:'Simulado',     emoji:'📊',cor:'#8b5cf6'},
+  dirigido: {label:'Est. Dirigido',emoji:'📖',cor:'#059669'},
+  grupo:    {label:'Trab. Grupo',  emoji:'👥',cor:'#d97706'},
+  seminario:{label:'Seminário',    emoji:'🎤',cor:'#dc2626'},
+  prova:    {label:'Avaliação',    emoji:'✏️',cor:'#7c3aed'},
+};
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let dados, cfg, sheetAtivo, turmaAtiva, viewAtual='alunos', busca='';
+let saveTimer=null, dirty=false;
+let deferredInstall=null;
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+window.onload = async () => {
+  await carregar();
+  buildSheetBar();
+  setSheet(sheetAtivo);
+  // PWA install prompt
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferredInstall = e;
+    document.getElementById('pwaBanner').style.display='flex';
+  });
+};
+
+// ══════════════════════════════════════════════
+// SAVE / LOAD — Firebase + localStorage fallback
+// ══════════════════════════════════════════════
+
+async function carregar() {
+  // 1. Tenta carregar do Firebase (se configurado)
+  if (window._FIREBASE_ATIVO && window._carregarFirebase) {
+    setSaveDot('dirty');
+    const remote = await window._carregarFirebase();
+    if (remote && remote.dados) {
+      aplicarDadosRemotos(remote);
+      window._appPronto = true;
+      return;
+    }
+  }
+  // 2. Fallback: localStorage
+  try {
+    const saved = localStorage.getItem('cepi_marajo_2026');
+    if (saved) {
+      const p = JSON.parse(saved);
+      dados      = p.dados;
+      cfg        = Object.assign({}, CFG_DEFAULT, p.cfg||{});
+      sheetAtivo = p.sheetAtivo || Object.keys(dados)[0];
+      turmaAtiva = p.turmaAtiva || Object.keys(dados[sheetAtivo].turmas)[0];
+      setSaveDot('saved');
+      window._appPronto = true;
+      return;
+    }
+  } catch(e){}
+  // 3. Dados originais do Excel
+  dados      = JSON.parse(JSON.stringify(DADOS_ORIG));
+  cfg        = {...CFG_DEFAULT};
+  sheetAtivo = Object.keys(dados)[0];
+  turmaAtiva = Object.keys(dados[sheetAtivo].turmas)[0];
+  window._appPronto = true;
+}
+
+function aplicarDadosRemotos(remote) {
+  dados      = remote.dados;
+  cfg        = Object.assign({}, CFG_DEFAULT, remote.cfg||{});
+  sheetAtivo = remote.sheetAtivo || Object.keys(dados)[0];
+  turmaAtiva = remote.turmaAtiva || Object.keys(dados[sheetAtivo]?.turmas||{})[0];
+  // Salva cópia local para uso offline
+  try { localStorage.setItem('cepi_marajo_2026', JSON.stringify({dados,cfg,sheetAtivo,turmaAtiva})); } catch(e){}
+  setSaveDot('saved');
+  buildSheetBar(); buildTurmaBar(); render();
+}
+
+function salvar() {
+  const payload = {dados, cfg, sheetAtivo, turmaAtiva};
+  // Sempre salva local (funciona offline)
+  try {
+    localStorage.setItem('cepi_marajo_2026', JSON.stringify(payload));
+  } catch(e){}
+  // Se Firebase ativo, salva na nuvem também
+  if (window._FIREBASE_ATIVO && window._salvarFirebase) {
+    window._salvarFirebase(payload);
+  } else {
+    dirty=false; setSaveDot('saved');
+  }
+}
+
+function agendarSalvar() {
+  dirty=true; setSaveDot('dirty');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(salvar, 1200);
+}
+
+function setSaveDot(s) {
+  const d=document.getElementById('saveDot');
+  if(!d) return;
+  d.className='save-dot '+s;
+  d.title = s==='saved'
+    ? (window._FIREBASE_ATIVO ? '☁️ Salvo na nuvem ✓' : '💾 Salvo localmente ✓')
+    : '⏳ Salvando...';
+}
+
+function resetarDados() {
+  if(!confirm('Isso vai APAGAR todas as alterações e voltar aos dados originais do Excel. Tem certeza?')) return;
+  localStorage.removeItem('cepi_marajo_2026');
+  dados = JSON.parse(JSON.stringify(DADOS_ORIG));
+  cfg   = {...CFG_DEFAULT};
+  salvar(); render(); alert('✅ Dados restaurados!');
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+const gD  = () => dados[sheetAtivo];
+const gAl = () => gD().turmas[turmaAtiva] || [];
+const gAv = () => gD().atividades || [];
+const gCfg= () => cfg;
+
+function calcNota(al) {
+  const ativs = gAv();
+  const c = gCfg();
+  const nEntregues = ativs.filter(a => al.entregas && al.entregas[a.nome]).length;
+  return +(
+    nEntregues * c.pesoAtiv +
+    (al.caderno  || 0) * c.pesoCaderno +
+    (al.prova    ? c.pesoProva : 0) +
+    (al.seminario|| 0) +
+    (al.extra    || 0)
+  ).toFixed(2);
+}
+
+function nbadge(n) {
+  const c = gCfg();
+  const cls = n>=c.notaAprovacao?'ng':n>=c.notaRecuperacao?'ny':'nr';
+  return `<span class="nb ${cls}">${n.toFixed(2)}</span>`;
+}
+
+function pctC(p){ return p>=70?'#16a34a':p>=40?'#ca8a04':'#dc2626'; }
+function fmtD(d){ if(!d)return''; const p=d.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d; }
+
+function mediaEntregas(){
+  const al=gAl(),av=gAv();
+  if(!al.length||!av.length) return 0;
+  return al.reduce((s,a)=>s+av.filter(v=>a.entregas&&a.entregas[v.nome]).length/av.length*100,0)/al.length;
+}
+function mediaNota(){
+  const al=gAl(); if(!al.length) return 0;
+  return al.reduce((s,a)=>s+calcNota(a),0)/al.length;
+}
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+function buildSheetBar(){
+  const bar=document.getElementById('sheetBar');
+  bar.innerHTML='<span class="lbl">DISCIPLINA</span>';
+  Object.keys(dados).forEach(sh=>{
+    const c=SHEET_CFG[sh]||{label:sh,cor:'#4a7dff',emoji:'📚'};
+    const b=document.createElement('button');
+    b.className='chip'+(sh===sheetAtivo?' on':'');
+    b.style.background=sh===sheetAtivo?c.cor:'#f3f4f6';
+    b.style.color=sh===sheetAtivo?'#fff':'#374151';
+    b.textContent=c.emoji+' '+c.label;
+    b.onclick=()=>setSheet(sh);
+    bar.appendChild(b);
+  });
+}
+
+function buildTurmaBar(){
+  const c=SHEET_CFG[sheetAtivo]||{cor:'#4a7dff'};
+  const bar=document.getElementById('turmaBar');
+  bar.innerHTML='<span class="lbl">TURMA</span>';
+  Object.keys(dados[sheetAtivo].turmas).forEach(t=>{
+    const b=document.createElement('button');
+    b.className='chip'+(t===turmaAtiva?' on':'');
+    b.style.borderColor=c.cor;
+    b.style.background=t===turmaAtiva?c.cor:'transparent';
+    b.style.color=t===turmaAtiva?'#fff':c.cor;
+    b.textContent=t;
+    b.onclick=()=>{turmaAtiva=t;buildTurmaBar();render();agendarSalvar();};
+    bar.appendChild(b);
+  });
+}
+
+function setSheet(sh){
+  sheetAtivo=sh; turmaAtiva=Object.keys(dados[sh].turmas)[0];
+  buildSheetBar(); buildTurmaBar(); render(); agendarSalvar();
+}
+
+function setView(v){
+  viewAtual=v;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['alunos','atividades','stats','config'][i]===v));
+  ['vAlunos','vAtividades','vStats','vConfig'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('v'+v.charAt(0).toUpperCase()+v.slice(1)).style.display='';
+  render();
+}
+
+function render(){
+  renderStrip();
+  if(viewAtual==='alunos')     renderAlunos();
+  if(viewAtual==='atividades') renderAtividades();
+  if(viewAtual==='stats')      renderStats();
+  if(viewAtual==='config')     renderConfig();
+}
+
+// ══════════════════════════════════════════════
+// STRIP
+// ══════════════════════════════════════════════
+function renderStrip(){
+  const al=gAl(), me=mediaEntregas(), mn=mediaNota(), c=gCfg();
+  const apr=al.filter(a=>calcNota(a)>=c.notaAprovacao).length;
+  document.getElementById('statsStrip').innerHTML=`
+    <div class="sbox"><div class="v" style="color:#4a7dff">👥 ${al.length}</div><div class="l">ALUNOS</div></div>
+    <div class="sbox"><div class="v" style="color:${pctC(me)}">✅ ${me.toFixed(0)}%</div><div class="l">ENTREGA</div></div>
+    <div class="sbox"><div class="v" style="color:${mn>=c.notaAprovacao?'#16a34a':mn>=c.notaRecuperacao?'#ca8a04':'#dc2626'}">📊 ${mn.toFixed(1)}</div><div class="l">MED. NOTA</div></div>
+    <div class="sbox"><div class="v" style="color:#16a34a">🏆 ${apr}</div><div class="l">APROVADOS</div></div>`;
+}
+
+// ══════════════════════════════════════════════
+// VIEW: ALUNOS
+// ══════════════════════════════════════════════
+function renderAlunos(){
+  const alunos=gAl(), ativs=gAv();
+  const fil=busca?alunos.filter(a=>a.nome.toLowerCase().includes(busca.toLowerCase())):alunos;
+  const cfg_=gCfg();
+
+  const thAv=ativs.map(a=>{
+    const t=TIPO[a.tipo]||TIPO.ativ;
+    return `<th class="c" data-tip="${a.nome}"><div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:14px">${t.emoji}</span><span style="max-width:48px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px">${a.nome.split(' ').slice(0,2).join(' ')}</span></div></th>`;
+  }).join('');
+
+  const rows=fil.map((al,fi)=>{
+    const nota=calcNota(al);
+    const entregues=ativs.filter(a=>al.entregas&&al.entregas[a.nome]).length;
+    const ai=alunos.indexOf(al);
+    const cbAv=ativs.map(a=>{
+      const feito=al.entregas&&al.entregas[a.nome];
+      const t=TIPO[a.tipo]||TIPO.ativ;
+      return `<td class="c"><div class="cb" style="background:${feito?t.cor+'22':'#f9fafb'};border-color:${feito?t.cor:'#dde1ea'}" onclick="toggleE(${ai},'${a.nome.replace(/'/g,"\\'")}')">
+        ${feito?`<span style="color:${t.cor};font-weight:900">✓</span>`:'<span style="color:#d1d5db;font-size:11px">–</span>'}
+      </div></td>`;
+    }).join('');
+    return `<tr>
+      <td style="color:var(--muted);font-weight:700;font-size:10px">${fi+1}</td>
+      <td><div style="font-weight:700;font-size:12px">${al.nome}</div><div style="font-size:10px;color:var(--muted)">${entregues}/${ativs.length}</div></td>
+      ${cbAv}
+      <td class="c"><input class="si" style="color:#16a34a" type="number" value="${al.caderno||0}" min="0" max="10" step="0.5" oninput="updC(${ai},'caderno',this.value)"></td>
+      <td class="c"><div class="cb" style="background:${al.prova?'#dcfce7':'#f9fafb'};border-color:${al.prova?'#16a34a':'#dde1ea'}" onclick="toggleP(${ai})">
+        ${al.prova?'<span style="color:#16a34a;font-weight:900">✓</span>':'<span style="color:#d1d5db;font-size:11px">–</span>'}
+      </div></td>
+      <td class="c"><input class="si" style="color:#7c3aed" type="number" value="${al.seminario||0}" min="0" max="10" step="0.5" oninput="updC(${ai},'seminario',this.value)"></td>
+      <td class="c"><input class="si" style="color:#d97706" type="number" value="${al.extra||0}" min="0" max="10" step="0.5" oninput="updC(${ai},'extra',this.value)"></td>
+      <td class="c">${nbadge(nota)}</td>
+      <td class="c"><button class="btn br" style="padding:3px 7px;font-size:10px" onclick="remAl(${ai})">✕</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="${ativs.length+8}" style="text-align:center;padding:30px;color:var(--muted)">${busca?'Nenhum aluno encontrado':'Nenhum aluno nesta turma'}</td></tr>`;
+
+  document.getElementById('vAlunos').innerHTML=`
+    <div class="card fade">
+      <div class="tb">
+        <input class="si2" placeholder="🔍 Buscar aluno..." value="${busca}" oninput="busca=this.value;renderAlunos()">
+        <button class="btn bp" onclick="om('mAluno')">+ Aluno</button>
+        <button class="btn bs" onclick="om('mImport')">📋 Lista</button>
+        <button class="btn bs no-print" onclick="window.print()">🖨</button>
+      </div>
+      <div class="tw"><table>
+        <thead><tr>
+          <th>#</th><th style="min-width:160px">ALUNO</th>${thAv}
+          <th class="c" data-tip="Caderno – peso ${cfg_.pesoCaderno}×valor">📓</th>
+          <th class="c" data-tip="Presença na prova (+${cfg_.pesoProva} pts)">✏️</th>
+          <th class="c" data-tip="Seminário (valor direto)">🎤</th>
+          <th class="c" data-tip="Atividade extra (valor direto)">⭐</th>
+          <th class="c">NOTA</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="tf">
+        <span><b>${fil.length}</b> aluno${fil.length!==1?'s':''}</span>
+        <span>•</span><span><b>${ativs.length}</b> atividade${ativs.length!==1?'s':''}</span>
+        <span>•</span>
+        <span>Nota = Atividades×${cfg_.pesoAtiv} + Caderno×${cfg_.pesoCaderno} + Prova(${cfg_.pesoProva}) + Seminário + Extra</span>
+        <span style="margin-left:auto;color:${dirty?'#f59e0b':'#16a34a'}">${dirty?'⏳ Salvando...':'✓ Salvo'}</span>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+// VIEW: ATIVIDADES
+// ══════════════════════════════════════════════
+function renderAtividades(){
+  const ativs=gAv(), alunos=gAl();
+  const cards=ativs.map((a,i)=>{
+    const t=TIPO[a.tipo]||TIPO.ativ;
+    const ent=alunos.filter(al=>al.entregas&&al.entregas[a.nome]).length;
+    const pct=alunos.length?ent/alunos.length*100:0;
+    return `<div class="ac">
+      <div class="ai" style="background:${t.cor}18">${t.emoji}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${a.nome}</div>
+        <div class="am">
+          <span class="tag" style="background:${t.cor}15;color:${t.cor}">${t.label}</span>
+          ${a.data?`<span style="font-size:11px;color:var(--muted)">📅 ${fmtD(a.data)}</span>`:''}
+          <span style="font-size:11px;color:var(--muted)">⭐ peso ${a.pontos||1}</span>
+        </div>
+      </div>
+      <div class="pb">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+          <span style="font-weight:700;color:${pctC(pct)}">${ent}/${alunos.length}</span>
+          <span style="color:var(--muted)">${pct.toFixed(0)}%</span>
+        </div>
+        <div class="bb"><div class="bf" style="width:${pct}%;background:${pctC(pct)}"></div></div>
+      </div>
+      <button class="btn br" style="padding:4px 9px;font-size:11px" onclick="remAv(${i})">✕</button>
+    </div>`;
+  }).join('')||`<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:36px;margin-bottom:8px">📋</div>Nenhuma atividade</div>`;
+
+  document.getElementById('vAtividades').innerHTML=`
+    <div class="card fade cp">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h2 style="font-size:15px;font-weight:700">Atividades — ${turmaAtiva}</h2>
+        <button class="btn bp" onclick="om('mAtiv')">+ Nova Atividade</button>
+      </div>${cards}
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+// VIEW: STATS
+// ══════════════════════════════════════════════
+function renderStats(){
+  const alunos=gAl(), ativs=gAv(), c=gCfg();
+  if(!alunos.length){document.getElementById('vStats').innerHTML='<div class="card cp" style="text-align:center;color:var(--muted)">Sem dados.</div>';return;}
+  const sorted=[...alunos].sort((a,b)=>calcNota(b)-calcNota(a));
+  const rank=sorted.slice(0,15).map((al,i)=>{
+    const n=calcNota(al);
+    const bg=i<3?['#ffd700','#c0c0c0','#cd7f32'][i]:'#f3f4f6';
+    const fc=i<3?'#fff':'var(--muted)';
+    return `<div class="rr">
+      <div class="rn" style="background:${bg};color:${fc}">${i+1}</div>
+      <div style="flex:1;font-size:12px;font-weight:600">${al.nome.split(' ').slice(0,3).join(' ')}</div>
+      ${nbadge(n)}
+    </div>`;
+  }).join('');
+
+  const avBars=ativs.map(a=>{
+    const t=TIPO[a.tipo]||TIPO.ativ;
+    const ent=alunos.filter(al=>al.entregas&&al.entregas[a.nome]).length;
+    const pct=alunos.length?ent/alunos.length*100:0;
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+        <span style="font-weight:600">${t.emoji} ${a.nome}</span>
+        <span style="color:var(--muted)">${ent}/${alunos.length} (${pct.toFixed(0)}%)</span>
+      </div>
+      <div class="bb"><div class="bf" style="width:${pct}%;background:${t.cor}"></div></div>
+    </div>`;
+  }).join('')||'<div style="color:var(--muted);text-align:center;padding:16px">Nenhuma atividade</div>';
+
+  const faixas=[
+    {l:0,   h:c.notaRecuperacao, lbl:`0–${c.notaRecuperacao-0.1}`,  bg:'#fee2e2',tc:'#dc2626'},
+    {l:c.notaRecuperacao, h:c.notaAprovacao,  lbl:`${c.notaRecuperacao}–${c.notaAprovacao-0.1}`,bg:'#fef9c3',tc:'#a16207'},
+    {l:c.notaAprovacao,   h:8.5, lbl:`${c.notaAprovacao}–8,4`,       bg:'#dcfce7',tc:'#15803d'},
+    {l:8.5, h:99,  lbl:'8,5–10',bg:'#dbeafe',tc:'#1d4ed8'},
+  ];
+  const dist=faixas.map(f=>{
+    const qtd=alunos.filter(al=>{const n=calcNota(al);return n>=f.l&&n<f.h;}).length;
+    const pct=alunos.length?qtd/alunos.length*100:0;
+    return `<div style="flex:1;text-align:center">
+      <div style="background:${f.bg};color:${f.tc};font-weight:800;font-size:20px;border-radius:9px;padding:10px 4px;margin-bottom:3px">${qtd}</div>
+      <div style="font-size:10px;color:var(--muted);font-weight:600">${f.lbl}</div>
+      <div style="font-size:10px;color:${f.tc}">${pct.toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('vStats').innerHTML=`
+    <div class="sg">
+      <div class="card cp fade"><h3 style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;letter-spacing:.4px">🏆 RANKING – TOP 15</h3>${rank}</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card cp fade"><h3 style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;letter-spacing:.4px">📊 DISTRIBUIÇÃO DE NOTAS</h3><div style="display:flex;gap:7px">${dist}</div></div>
+        <div class="card cp fade"><h3 style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;letter-spacing:.4px">✅ TAXA DE ENTREGA</h3>${avBars}</div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+// VIEW: CONFIG
+// ══════════════════════════════════════════════
+function renderConfig(){
+  const c=gCfg();
+  document.getElementById('vConfig').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+
+      <div class="card cp fade">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">⚖️ Pesos da Fórmula</h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Nota = (Atividades × peso) + (Caderno × peso) + Prova + Seminário + Extra</p>
+
+        <div class="cfg-row">
+          <div><label>📝 Peso por Atividade entregue</label><small>Multiplicado pelo nº de atividades entregues</small></div>
+          <input class="si" type="number" value="${c.pesoAtiv}" min="0" max="5" step="0.25" oninput="updCfg('pesoAtiv',this.value)">
+        </div>
+        <div class="cfg-row">
+          <div><label>✏️ Pontos pela Prova (presença)</label><small>Adicionado se o aluno fez a prova</small></div>
+          <input class="si" type="number" value="${c.pesoProva}" min="0" max="10" step="0.25" oninput="updCfg('pesoProva',this.value)">
+        </div>
+        <div class="cfg-row">
+          <div><label>📓 Multiplicador do Caderno</label><small>O valor do caderno é multiplicado por isso</small></div>
+          <input class="si" type="number" value="${c.pesoCaderno}" min="0" max="5" step="0.25" oninput="updCfg('pesoCaderno',this.value)">
+        </div>
+      </div>
+
+      <div class="card cp fade">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">🎯 Critérios de Aprovação</h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Define as faixas de cores nas notas e no ranking</p>
+
+        <div class="cfg-row">
+          <div><label>🟢 Nota mínima para Aprovação</label><small>Acima disso = verde</small></div>
+          <input class="si" type="number" value="${c.notaAprovacao}" min="0" max="10" step="0.5" oninput="updCfg('notaAprovacao',this.value)">
+        </div>
+        <div class="cfg-row">
+          <div><label>🟡 Nota mínima para Recuperação</label><small>Entre recuperação e aprovação = amarelo</small></div>
+          <input class="si" type="number" value="${c.notaRecuperacao}" min="0" max="10" step="0.5" oninput="updCfg('notaRecuperacao',this.value)">
+        </div>
+
+        <div style="margin-top:16px;padding:12px;background:#f8f9fb;border-radius:9px;font-size:12px">
+          <div style="font-weight:700;margin-bottom:6px">Prévia com configuração atual:</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="nb ng">≥ ${c.notaAprovacao} Aprovado</span>
+            <span class="nb ny">${c.notaRecuperacao}–${(c.notaAprovacao-0.01).toFixed(2)} Rec.</span>
+            <span class="nb nr">< ${c.notaRecuperacao} Reprovado</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card cp fade">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">💾 Dados & Backup</h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Os dados ficam salvos neste navegador automaticamente</p>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn bg" onclick="exportCSV()" style="justify-content:center">⬇ Exportar CSV da turma atual</button>
+          <button class="btn bp" onclick="exportTudo()" style="justify-content:center">⬇ Exportar TODAS as turmas (JSON)</button>
+          <button class="btn bs" onclick="importJSON()" style="justify-content:center">⬆ Importar backup JSON</button>
+          <button class="btn br" onclick="resetarDados()" style="justify-content:center">🔄 Restaurar dados originais do Excel</button>
+        </div>
+
+        <div id="cfgSyncInfo" style="margin-top:14px;padding:10px;border-radius:8px;font-size:11px"></div>
+      </div>
+
+      <div class="card cp fade">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">📱 Instalar como App</h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Instale direto no celular ou computador, sem loja de apps</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="padding:10px;background:#f8f9fb;border-radius:9px;font-size:12px">
+            <div style="font-weight:700;margin-bottom:6px">📱 Android / Chrome:</div>
+            1. Abra este arquivo no Chrome<br>2. Toque nos 3 pontinhos ⋮<br>3. "Adicionar à tela inicial"
+          </div>
+          <div style="padding:10px;background:#f8f9fb;border-radius:9px;font-size:12px">
+            <div style="font-weight:700;margin-bottom:6px">🍎 iPhone / Safari:</div>
+            1. Abra no Safari<br>2. Toque no ícone compartilhar ⬆<br>3. "Adicionar à Tela de Início"
+          </div>
+          <div style="padding:10px;background:#f8f9fb;border-radius:9px;font-size:12px">
+            <div style="font-weight:700;margin-bottom:6px">💻 Chrome no Mac/PC:</div>
+            1. Clique no ícone ⊕ na barra de endereço<br>2. "Instalar"
+          </div>
+          <button class="btn bp" onclick="installPWA()" id="btnInstall">📲 Instalar Agora</button>
+        </div>
+      </div>
+
+    </div>`;
+  // Update sync status div (avoid inline script tags inside innerHTML)
+  const si = document.getElementById('cfgSyncInfo');
+  if(si){
+    if(window._FIREBASE_ATIVO){
+      si.style.background='#eff6ff'; si.style.color='#1d4ed8';
+      si.innerHTML='☁️ <b>Sincronização ativa!</b><br>Alterações salvas em todos os dispositivos<br>✓ Funciona offline com sync ao reconectar';
+    } else {
+      si.style.background='#fef9c3'; si.style.color='#92400e';
+      si.innerHTML='⚠️ <b>Modo offline</b> — Firebase não configurado<br>Dados salvos apenas neste navegador';
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+// MUTATIONS
+// ══════════════════════════════════════════════
+function toggleE(ai, ativNome){
+  const al=dados[sheetAtivo].turmas[turmaAtiva][ai];
+  if(!al.entregas) al.entregas={};
+  al.entregas[ativNome]=!al.entregas[ativNome];
+  agendarSalvar(); render();
+}
+
+function toggleP(ai){
+  dados[sheetAtivo].turmas[turmaAtiva][ai].prova=!dados[sheetAtivo].turmas[turmaAtiva][ai].prova;
+  agendarSalvar(); render();
+}
+
+function updC(ai, campo, val){
+  dados[sheetAtivo].turmas[turmaAtiva][ai][campo]=parseFloat(val)||0;
+  agendarSalvar(); renderStrip();
+  // re-render nota badge inline
+  const rows=document.querySelectorAll('#vAlunos tbody tr');
+  if(rows[ai]){
+    const nota=calcNota(dados[sheetAtivo].turmas[turmaAtiva][ai]);
+    const notaCell=rows[ai].querySelector('td:nth-last-child(2)');
+    if(notaCell) notaCell.innerHTML=nbadge(nota);
+  }
+}
+
+function updCfg(campo, val){
+  cfg[campo]=parseFloat(val)||0;
+  agendarSalvar(); render();
+}
+
+function remAl(ai){
+  if(!confirm('Remover este aluno?')) return;
+  dados[sheetAtivo].turmas[turmaAtiva].splice(ai,1);
+  agendarSalvar(); render();
+}
+
+function remAv(i){
+  if(!confirm('Remover esta atividade?')) return;
+  const d=dados[sheetAtivo];
+  const nome=d.atividades[i].nome;
+  d.atividades.splice(i,1);
+  Object.values(d.turmas).forEach(als=>als.forEach(al=>{if(al.entregas)delete al.entregas[nome];}));
+  agendarSalvar(); render();
+}
+
+function addAtiv(){
+  const nome=document.getElementById('aNome').value.trim();
+  if(!nome){alert('Digite o nome da atividade');return;}
+  const tipo=document.getElementById('aTipo').value;
+  const data=document.getElementById('aData').value;
+  const pts=parseFloat(document.getElementById('aPts').value)||1;
+  const d=dados[sheetAtivo];
+  d.atividades.push({nome,tipo,data,pontos:pts});
+  Object.values(d.turmas).forEach(als=>als.forEach(al=>{if(!al.entregas)al.entregas={};al.entregas[nome]=false;}));
+  cm('mAtiv'); document.getElementById('aNome').value='';
+  agendarSalvar(); render();
+}
+
+function confirmarAluno(){
+  const nome=document.getElementById('alNome').value.trim().toUpperCase();
+  if(!nome||nome.length<3){alert('Digite o nome completo');return;}
+  addAlunoNome(nome);
+  document.getElementById('alNome').value=''; cm('mAluno');
+}
+
+function addAlunoNome(nome){
+  const e={};
+  gAv().forEach(a=>e[a.nome]=false);
+  dados[sheetAtivo].turmas[turmaAtiva].push({nome,entregas:e,prova:false,seminario:0,extra:0,caderno:0});
+  agendarSalvar(); render();
+}
+
+// ══════════════════════════════════════════════
+// IMPORT
+// ══════════════════════════════════════════════
+document.getElementById('iLista').addEventListener('input',function(){
+  const l=parseLista(this.value);
+  document.getElementById('iCount').textContent=l.length+' aluno'+(l.length!==1?'s':'')+' detectado'+(l.length!==1?'s':'');
+});
+
+function parseLista(txt){
+  return txt.split('\n').map(l=>l.trim().replace(/^\d+[\.\)]\s*/,'').trim().toUpperCase()).filter(l=>l.length>=4);
+}
+
+function confirmarImport(){
+  const lista=parseLista(document.getElementById('iLista').value);
+  if(!lista.length){alert('Nenhum aluno detectado');return;}
+  const ex=new Set(gAl().map(a=>a.nome));
+  let n=0;
+  lista.forEach(nome=>{if(!ex.has(nome)){addAlunoNome(nome);n++;}});
+  document.getElementById('iLista').value=''; cm('mImport');
+  alert(`✅ ${n} aluno${n!==1?'s':''} importado${n!==1?'s':''}!`+(lista.length-n>0?` (${lista.length-n} já existiam)`:''));
+}
+
+// ══════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════
+function exportCSV(){
+  const al=gAl(), av=gAv();
+  const h=['Nome',...av.map(a=>a.nome),'Caderno','Prova','Seminário','Extra','Nota Total'];
+  const rows=al.map(a=>[a.nome,...av.map(v=>(a.entregas&&a.entregas[v.nome])?'Sim':'Não'),a.caderno||0,a.prova?'Sim':'Não',a.seminario||0,a.extra||0,calcNota(a).toFixed(2)]);
+  const csv=[h,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  dl('\uFEFF'+csv,`Notas_${sheetAtivo}_${turmaAtiva}_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`,'text/csv');
+}
+
+function exportTudo(){
+  const json=JSON.stringify({dados,cfg,exportado:new Date().toISOString()},null,2);
+  dl(json,`CEPI_Marajo_backup_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.json`,'application/json');
+}
+
+function importJSON(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0]; if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const p=JSON.parse(ev.target.result);
+        if(!p.dados)throw new Error('Formato inválido');
+        dados=p.dados; if(p.cfg)cfg=Object.assign({},CFG_DEFAULT,p.cfg);
+        salvar(); buildSheetBar(); setSheet(sheetAtivo);
+        alert('✅ Backup importado com sucesso!');
+      }catch(err){alert('Erro ao importar: '+err.message);}
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+function dl(content, filename, type){
+  const blob=new Blob([content],{type});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+}
+
+// ══════════════════════════════════════════════
+// PWA
+// ══════════════════════════════════════════════
+function installPWA(){
+  if(deferredInstall){deferredInstall.prompt();deferredInstall.userChoice.then(()=>{deferredInstall=null;document.getElementById('pwaBanner').style.display='none';});}
+  else alert('Para instalar:\n• Chrome/Android: Menu ⋮ → "Adicionar à tela inicial"\n• Safari/iPhone: Compartilhar ⬆ → "Adicionar à Tela de Início"\n• Chrome/PC: Ícone ⊕ na barra de endereço');
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function om(id){document.getElementById(id).style.display='flex';}
+function cm(id){document.getElementById(id).style.display='none';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.mbg').forEach(m=>m.style.display='none');});
+</script>
+</body>
+</html>
