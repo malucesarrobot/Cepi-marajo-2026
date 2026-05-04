@@ -226,6 +226,71 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary)}
   .sbox .v{font-size:14px}
 }
 
+/* IDENTIDADE PROFª MALU */
+:root {
+  --malu-1: #2d1b4e;   /* roxo profundo – ancestralidade */
+  --malu-2: #c4531a;   /* terracota – terra, povos originários */
+  --malu-3: #1a6b3a;   /* verde selva – Amazônia, vida */
+  --malu-4: #d4a017;   /* ocre solar – afrofuturismo */
+  --malu-5: #f0ebe0;   /* areia clara – fundo suave */
+}
+
+/* SPLASH / WELCOME */
+.splash {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--malu-1);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px; text-align: center;
+  transition: opacity .6s ease;
+}
+.splash.hide { opacity: 0; pointer-events: none; }
+.splash-logo {
+  width: 90px; height: 90px; border-radius: 22px;
+  background: linear-gradient(135deg, var(--malu-2), var(--malu-4));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px; margin-bottom: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  animation: pulseIn .8s ease;
+}
+@keyframes pulseIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
+.splash-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; letter-spacing: .5px; }
+.splash-sub { font-size: 13px; color: rgba(255,255,255,.7); margin-bottom: 24px; }
+.splash-frase {
+  background: rgba(255,255,255,.08); border-left: 3px solid var(--malu-4);
+  padding: 14px 18px; border-radius: 0 10px 10px 0;
+  font-size: 13px; color: rgba(255,255,255,.9); font-style: italic;
+  max-width: 340px; line-height: 1.6; margin-bottom: 28px;
+}
+.splash-autor { font-size: 11px; color: var(--malu-4); font-weight: 700; margin-top: 6px; font-style: normal; }
+.splash-bar { width: 200px; height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }
+.splash-bar-fill { height: 100%; background: linear-gradient(90deg, var(--malu-2), var(--malu-4)); border-radius: 2px; animation: loadBar 1.8s ease forwards; }
+@keyframes loadBar { from{width:0} to{width:100%} }
+.splash-disc { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+.splash-disc span { background: rgba(255,255,255,.12); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: rgba(255,255,255,.8); font-weight: 600; }
+
+/* HEADER IDENTITY */
+.hdr { background: var(--malu-1) !important; border-bottom: 2px solid var(--malu-2) !important; }
+.logo { background: linear-gradient(135deg, var(--malu-2), var(--malu-4)) !important; }
+.logo-t h1 { color: #fff !important; }
+.logo-t p { color: rgba(255,255,255,.6) !important; }
+.tab { color: rgba(255,255,255,.6) !important; }
+.tab.on { background: var(--malu-2) !important; color: #fff !important; }
+.tab:hover:not(.on) { background: rgba(255,255,255,.1) !important; color: #fff !important; }
+.btn.bg { background: var(--malu-3) !important; color: #fff !important; }
+
+/* CURIOSIDADE DO DIA */
+.curiosidade-bar {
+  background: linear-gradient(135deg, var(--malu-1), #3d2560);
+  color: #fff; padding: 8px 16px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.1);
+  overflow: hidden;
+}
+.curiosidade-bar .curi-icon { font-size: 16px; flex-shrink: 0; }
+.curiosidade-bar .curi-txt { flex: 1; font-style: italic; opacity: .9; line-height: 1.4; }
+.curiosidade-bar .curi-tag { font-size: 10px; font-weight: 700; background: rgba(255,255,255,.15); padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
+
 /* PRINT */
 @media print{.hdr,.chips,.tb,.sstrip,.no-print{display:none!important}.card{box-shadow:none}body{background:#fff}}
 </style>
@@ -241,10 +306,35 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary)}
 </div>
 
 <!-- HEADER -->
+<!-- SPLASH SCREEN -->
+<div class="splash" id="splash">
+  <div class="splash-logo">🌍</div>
+  <div class="splash-title">Profª Malu</div>
+  <div class="splash-sub">CEPI Marajó · 2º Bimestre 2026</div>
+  <div class="splash-disc">
+    <span>📜 História</span>
+    <span>🧠 Filosofia</span>
+    <span>🌍 Sociologia</span>
+    <span>🎨 Artes</span>
+  </div>
+  <div class="splash-frase" id="splashFrase">
+    <span id="splashTxt">Carregando...</span>
+    <div class="splash-autor" id="splashAutor"></div>
+  </div>
+  <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+</div>
+
+<!-- CURIOSIDADE DO DIA -->
+<div class="curiosidade-bar no-print" id="curiosidadeBar">
+  <span class="curi-icon" id="curiIcon">💡</span>
+  <span class="curi-txt" id="curiTxt">Carregando curiosidade do dia...</span>
+  <span class="curi-tag" id="curiTag">Sabia?</span>
+</div>
+
 <div class="hdr">
   <div class="hdr-in">
-    <div class="logo">📚</div>
-    <div class="logo-t"><h1>CEPI Marajó – Atividades</h1><p>2º Bimestre 2026</p></div>
+    <div class="logo">🌍</div>
+    <div class="logo-t"><h1>Profª Malu · Controle de Atividades</h1><p>CEPI Marajó · 2º Bimestre 2026</p></div>
     <div class="sp"></div>
     <div class="save-dot" id="saveDot" title="Status do salvamento"></div>
     <div class="tabs" id="mainTabs">
@@ -377,6 +467,7 @@ let deferredInstall=null;
 // INIT
 // ══════════════════════════════════════════════
 window.onload = async () => {
+  initIdentidade();
   await carregar();
   buildSheetBar();
   setSheet(sheetAtivo);
@@ -988,8 +1079,62 @@ function installPWA(){
 }
 
 // ══════════════════════════════════════════════
-// UTILS
 // ══════════════════════════════════════════════
+// IDENTIDADE – FRASES & CURIOSIDADES
+// ══════════════════════════════════════════════
+const FRASES = [
+  { txt: "A história é a memória coletiva dos povos. Sem ela, cada geração começa do zero.", autor: "— Profª Malu" },
+  { txt: "Nenhum povo é primitivo. Toda cultura é um sistema completo de saberes acumulados por milênios.", autor: "— Pensamento decolonial" },
+  { txt: "A filosofia não é um luxo europeu — povos africanos, indígenas e asiáticos filosofaram muito antes de Sócrates.", autor: "— Profª Malu" },
+  { txt: "Kwame Nkrumah dizia: a África deve se unir. Hoje, esse chamado ecoa além do continente — é um chamado à humanidade.", autor: "— Pan-africanismo" },
+  { txt: "Educar é um ato político. Não existe educação neutra.", autor: "— Paulo Freire" },
+  { txt: "O futurismo étnico não olha só para o passado — ele imagina mundos onde os povos historicamente silenciados protagonizam o amanhã.", autor: "— Profª Malu" },
+  { txt: "A colonização não terminou com a independência política. Ela continua na mente, nos currículos, nos mapas.", autor: "— Aníbal Quijano" },
+  { txt: "Quando um velho morre na África, é como se uma biblioteca pegasse fogo.", autor: "— Amadou Hampâté Bâ" },
+  { txt: "Os povos originários das Américas não foram descobertos — eles já estavam aqui, com civilizações, línguas e cosmovisões próprias.", autor: "— Pensamento indigenista" },
+  { txt: "Sociologia nos ensina que nenhum problema social é individual — sempre há estruturas por trás.", autor: "— Profª Malu" },
+  { txt: "A arte é a língua universal que nenhum colonizador conseguiu apagar completamente.", autor: "— Profª Malu" },
+  { txt: "Decolonizar o pensamento é o primeiro passo para decolonizar o mundo.", autor: "— bell hooks" },
+  { txt: "O Marajó não é periferia da história — é o centro de uma civilização que o Brasil ainda não aprendeu a reconhecer.", autor: "— Profª Malu" },
+  { txt: "Não basta incluir os excluídos no sistema — é preciso transformar o próprio sistema.", autor: "— Boaventura de Sousa Santos" },
+  { txt: "A Amazônia não é vazia. Nunca foi. É o maior arquivo vivo de saberes do planeta.", autor: "— Profª Malu" },
+];
+
+const CURIOSIDADES = [
+  { icon: "🌍", txt: "O Reino do Kongo, no século XV, tinha uma estrutura diplomática tão sofisticada que recebia embaixadores europeus como iguais.", tag: "Pan-africanismo" },
+  { icon: "🪶", txt: "A civilização marajoara criou cerâmicas há 2.000 anos com padrões geométricos que até hoje intrigam arqueólogos do mundo inteiro.", tag: "Marajó" },
+  { icon: "🧠", txt: "Ibn Rushd (Averróis), filósofo islâmico do século XII, foi quem preservou Aristóteles — sem ele, a Europa medieval não teria acesso a essa filosofia.", tag: "Filosofia" },
+  { icon: "📜", txt: "O Tratado de Tordesilhas de 1494 dividiu o mundo entre Portugal e Espanha sem consultar nenhum dos povos que habitavam esses territórios.", tag: "Decolonial" },
+  { icon: "✊", txt: "Zumbi dos Palmares liderou por quase 20 anos a maior resistência quilombola das Américas, com uma população maior que muitas cidades europeias da época.", tag: "História" },
+  { icon: "🌱", txt: "A 'terra preta de índio' na Amazônia foi criada por povos indígenas há milênios — mais fértil que qualquer solo natural. Uma tecnologia que ainda não sabemos replicar.", tag: "Indigenismo" },
+  { icon: "🎨", txt: "As pinturas rupestres da Serra da Capivara têm mais de 25.000 anos — mais antigas que as de Lascaux, na França, reescrevendo a história humana nas Américas.", tag: "Arte & História" },
+  { icon: "🌐", txt: "Antes da chegada europeia, a América do Sul tinha mais de 2.000 línguas diferentes. Hoje restam cerca de 350. Cada língua perdida é uma forma de ver o mundo que desaparece.", tag: "Indigenismo" },
+  { icon: "📚", txt: "A Universidade de Timbuktu, no Mali (século XII), tinha 25.000 estudantes e mais de 700.000 manuscritos quando a Europa vivia na Idade Média.", tag: "Pan-africanismo" },
+  { icon: "🔭", txt: "Cheikh Anta Diop demonstrou que o Egito Antigo era uma civilização negra africana — uma tese que ainda provoca incômodo no mundo acadêmico eurocêntrico.", tag: "Decolonial" },
+  { icon: "🏛️", txt: "A filosofia Ubuntu — 'Sou porque somos' — é um sistema ético africano milenar que coloca a coletividade acima do individualismo.", tag: "Filosofia" },
+  { icon: "🌊", txt: "Navegadores polinesios chegaram às Américas séculos antes de Colombo, usando apenas estrelas, correntes oceânicas e o voo dos pássaros como guia.", tag: "História" },
+  { icon: "🌺", txt: "A palavra 'Marajó' vem do tupi e significa 'barreira do mar'. Os primeiros habitantes criaram uma das mais complexas sociedades pré-colombianas da América do Sul.", tag: "Marajó" },
+  { icon: "🤝", txt: "O conceito indígena 'Bem Viver' (Sumak Kawsay) propõe harmonia com a natureza e está nas constituições do Equador e da Bolívia como alternativa ao capitalismo.", tag: "Indigenismo" },
+  { icon: "⚖️", txt: "Simone de Beauvoir escreveu em 1949: 'Não se nasce mulher, torna-se mulher.' Uma frase que ainda revoluciona e ainda incomoda.", tag: "Filosofia" },
+];
+
+function initIdentidade() {
+  const f = FRASES[Math.floor(Math.random() * FRASES.length)];
+  document.getElementById('splashTxt').textContent = f.txt;
+  document.getElementById('splashAutor').textContent = f.autor;
+  const dayIdx = new Date().getDay() + new Date().getDate();
+  const c = CURIOSIDADES[dayIdx % CURIOSIDADES.length];
+  document.getElementById('curiIcon').textContent = c.icon;
+  document.getElementById('curiTxt').textContent = c.txt;
+  document.getElementById('curiTag').textContent = c.tag;
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('hide');
+    setTimeout(() => document.getElementById('splash').style.display='none', 700);
+  }, 2800);
+}
+
+// ══════════════════════════════════════════════
+// UTILS
 function om(id){document.getElementById(id).style.display='flex';}
 function cm(id){document.getElementById(id).style.display='none';}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.mbg').forEach(m=>m.style.display='none');});
