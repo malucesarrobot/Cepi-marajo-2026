@@ -576,11 +576,11 @@ function calcNota(al) {
   const c = gCfg();
   const nEntregues = ativs.filter(a => al.entregas && al.entregas[a.nome]).length;
   return +(
-    nEntregues * c.pesoAtiv +
+    nEntregues   * c.pesoAtiv +
     (al.caderno  || 0) * c.pesoCaderno +
     (al.prova    ? c.pesoProva : 0) +
-    (al.seminario|| 0) +
-    (al.extra    || 0)
+    (al.seminario|| 0) * c.pesoSeminario +
+    (al.extra    || 0) * c.pesoExtra
   ).toFixed(2);
 }
 
@@ -845,7 +845,7 @@ function renderConfig(){
 
       <div class="card cp fade">
         <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">⚖️ Pesos da Fórmula</h3>
-        <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Nota = (Atividades × peso) + (Caderno × peso) + Prova + Seminário + Extra</p>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Nota = (Atividades × peso) + (Caderno × peso) + Prova + (Seminário × peso) + (Extra × peso)</p>
 
         <div class="cfg-row">
           <div><label>📝 Peso por Atividade entregue</label><small>Multiplicado pelo nº de atividades entregues</small></div>
@@ -858,6 +858,18 @@ function renderConfig(){
         <div class="cfg-row">
           <div><label>📓 Multiplicador do Caderno</label><small>O valor do caderno é multiplicado por isso</small></div>
           <input class="si" type="number" value="${c.pesoCaderno}" min="0" max="5" step="0.25" oninput="updCfg('pesoCaderno',this.value)">
+        </div>
+        <div class="cfg-row">
+          <div><label>🎤 Multiplicador do Seminário</label><small>O valor lançado é multiplicado por isso</small></div>
+          <input class="si" type="number" value="${c.pesoSeminario}" min="0" max="5" step="0.25" oninput="updCfg('pesoSeminario',this.value)">
+        </div>
+        <div class="cfg-row">
+          <div><label>⭐ Multiplicador do Extra</label><small>O valor lançado é multiplicado por isso</small></div>
+          <input class="si" type="number" value="${c.pesoExtra}" min="0" max="5" step="0.25" oninput="updCfg('pesoExtra',this.value)">
+        </div>
+        <div style="margin-top:12px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#15803d">
+          ✓ As notas são recalculadas automaticamente ao mudar qualquer peso<br>
+          ✓ Fórmula atual: Ativs×${c.pesoAtiv} + Caderno×${c.pesoCaderno} + Prova(${c.pesoProva}) + Semin.×${c.pesoSeminario} + Extra×${c.pesoExtra}
         </div>
       </div>
 
@@ -960,8 +972,17 @@ function updC(ai, campo, val){
 }
 
 function updCfg(campo, val){
-  cfg[campo]=parseFloat(val)||0;
-  agendarSalvar(); render();
+  cfg[campo] = parseFloat(val) || 0;
+  agendarSalvar();
+  // Re-renderiza a view de alunos em background para atualizar notas
+  // sem sair da tela de config
+  renderStatsStrip();
+  if (viewAtual === 'config') {
+    // Atualiza só o strip de stats para mostrar nova média em tempo real
+    renderStatsStrip();
+  } else {
+    render();
+  }
 }
 
 function remAl(ai){
