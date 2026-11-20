@@ -54,6 +54,7 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
 .pc{color:var(--muted);margin-left:3px;font-size:.85rem;font-weight:700}
 .pc.big{font-size:1.1rem;margin-left:6px}
 .pcwrap{display:inline-flex;align-items:center}
+.mini2{appearance:none;border:1px solid var(--line);color:var(--muted);background:transparent;border-radius:8px;font:inherit;font-size:.8rem;padding:4px 10px;margin-right:8px;cursor:pointer}
 .msg{font-size:.9rem;color:var(--muted)}
 .more{margin-left:auto;font-size:.85rem;color:var(--muted)}
 .more summary{cursor:pointer;padding:6px 0}
@@ -64,7 +65,7 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
 <div class="wrap">
   <header>
     <h1>Projeto <span>Afrofuturismo</span>, notas</h1>
-    <span id="status" class="chip" role="status">Conectando…</span>
+    <span><button id="btnGeral" class="mini2" type="button">Acesso geral</button> <span id="status" class="chip" role="status">Conectando…</span></span>
   </header>
 
   <div class="bar">
@@ -72,7 +73,7 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
       <span class="pcwrap"><input id="bulk" class="field nota-big" inputmode="decimal" value="" autocomplete="off"><b class="pc big">%</b></span>
     </label>
     <label class="check"><input id="keep" type="checkbox"> Manter quem já tem nota</label>
-    <span class="msg">Use o botão “Atribuir a esta turma” no topo da sua turma. O ✕ apaga a nota de um aluno.</span>
+    <span class="msg">Destrave sua turma com a senha e use “Atribuir a esta turma”. O ✕ apaga a nota de um aluno.</span>
     <details class="more">
       <summary>Mais opções (todas as turmas)</summary>
       <div class="morebox">
@@ -104,6 +105,17 @@ const firebaseConfig = {
   appId:"1:676779769177:web:63c1671558172684056048"
 };
 const COL = "afrofuturismo_notas";
+const PASS_HASH = {"8A":"a0a5935330e59384332d5558aed5818346d9552807254ff9f99dde42372536c6","8B":"09066b7b27f17a85b2a6a8d00adba9c13c96cf98ba095ef499811c65bcfe7ee1","9A":"4485b18e1e12c5511f79b2492e1281b609f2c1f3bdc11f381919abf301dd93ec","9B":"321de264d48446a35788ce9a6c695e3f4bb007c77ea1eb728f722ca284e8ca35","9C":"376b199e3bd55fba564e971c175842b166de0a2b47caae4f096af7a31957f5dd","ALL":"a3e8bfaf3468cdfa8eea9f13072e463ea1f9f874ab350b5724ddac9b16d5441e"};
+const unlocked = new Set(JSON.parse(sessionStorage.getItem("afro_unlock")||"[]"));
+const canEdit = t => unlocked.has("ALL") || unlocked.has(t);
+async function sha(s){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s.trim().toLowerCase())); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+async function destravar(t){
+  const label = t==="ALL" ? "acesso geral" : "a turma "+TNAME[t];
+  const p = prompt("Digite a senha de "+label+":"); if (p===null) return;
+  if (await sha(p) === PASS_HASH[t]){ unlocked.add(t); try{sessionStorage.setItem("afro_unlock",JSON.stringify([...unlocked]));}catch(_){} render(); applyMore(); }
+  else alert("Senha incorreta.");
+}
+function applyMore(){ const m=document.querySelector(".more"); if (m) m.style.display = unlocked.has("ALL") ? "" : "none"; }
 
 const TURMAS = [["8A","8º A"],["8B","8º B"],["9A","9º A"],["9B","9º B"],["9C","9º C"]];
 const TNAME = Object.fromEntries(TURMAS);
@@ -163,7 +175,7 @@ function render(){
   let h = "<thead><tr>";
   TURMAS.forEach(([t,n]) => {
     const com = Object.keys(valsOf(t)).length;
-    h += `<th colspan="3">${n}<small>${com}/${ALUNOS[t].length}</small>${canWrite?`<button class="mini" type="button" data-bulk="${t}">Atribuir a esta turma</button>`:""}</th>`;
+    h += `<th colspan="3">${n}<small>${com}/${ALUNOS[t].length}</small>${canEdit(t)?`<button class="mini" type="button" data-bulk="${t}">Atribuir a esta turma</button>`:`<button class="mini" type="button" data-unlock="${t}">🔒 Destravar</button>`}</th>`;
   });
   h += "</tr></thead><tbody>";
   for (let i = 0; i < MAXN; i++){
@@ -172,7 +184,7 @@ function render(){
       const nm = ALUNOS[t][i];
       if (nm === undefined){ h += `<td class="nm"></td><td></td><td></td>`; return; }
       const v = valsOf(t)[i], has = typeof v === "number";
-      h += `<td class="nm" title="${nm}"><i>${i+1}</i>${nm}</td><td class="nt"><input class="nota${has?" has":""}" data-t="${t}" data-i="${i}" inputmode="decimal" autocomplete="off" aria-label="Nota (percentual) de ${nm}" value="${fmt(v)}"${canWrite?"":" disabled"}><b class="pc">%</b></td><td><button class="x" type="button" data-t="${t}" data-i="${i}" aria-label="Apagar nota de ${nm}" title="Apagar nota"${has&&canWrite?"":" disabled"}>✕</button></td>`;
+      h += `<td class="nm" title="${nm}"><i>${i+1}</i>${nm}</td><td class="nt"><input class="nota${has?" has":""}" data-t="${t}" data-i="${i}" inputmode="decimal" autocomplete="off" aria-label="Nota (percentual) de ${nm}" value="${fmt(v)}"${canEdit(t)?"":" disabled"}><b class="pc">%</b></td><td><button class="x" type="button" data-t="${t}" data-i="${i}" aria-label="Apagar nota de ${nm}" title="Apagar nota"${has&&canEdit(t)?"":" disabled"}>✕</button></td>`;
     });
     h += "</tr>";
   }
@@ -198,7 +210,7 @@ function showToast(msg, withUndo){
   clearTimeout(undoTimer); undoTimer = setTimeout(() => { $("toast").classList.add("hidden"); undoSnap = null; }, 20000);
 }
 function bulk(ts, label){
-  if (!canWrite) return;
+  if (!ts.every(canEdit)) return;
   const v = parseNum($("bulk").value);
   if (v === null || Number.isNaN(v)){ $("bulk").setAttribute("aria-invalid","true"); showToast("Digite o percentual (0 a 100) no campo Nota inicial antes de atribuir.", false); return; }
   $("bulk").removeAttribute("aria-invalid");
@@ -212,8 +224,10 @@ function bulk(ts, label){
   render();
   showToast(`Nota ${fmt(v)}% atribuída a ${count} aluno(s) (${label}). Use o ✕ para apagar de quem não participou.`, true);
 }
-$("btnAll").onclick = () => bulk(TURMAS.map(x => x[0]), "todas as turmas");
+$("btnAll").onclick = () => unlocked.has("ALL") && bulk(TURMAS.map(x => x[0]), "todas as turmas");
 $("tbl").addEventListener("click", e => {
+  const ub = e.target.closest("button[data-unlock]");
+  if (ub){ destravar(ub.dataset.unlock); return; }
   const bb = e.target.closest("button[data-bulk]");
   if (bb){ bulk([bb.dataset.bulk], TNAME[bb.dataset.bulk]); return; }
   const x = e.target.closest("button.x");
@@ -227,7 +241,7 @@ $("btnUndo").onclick = () => {
 let armed = false;
 $("btnClearAll").onclick = () => {
   const m = $("clearMsg");
-  if (!canWrite) return;
+  if (!unlocked.has("ALL")) return;
   if (!armed){ armed = true; m.textContent = "Toque de novo para confirmar."; m.style.color = "var(--bad)"; setTimeout(() => { armed = false; m.textContent = ""; }, 4000); return; }
   armed = false; m.textContent = "";
   const ts = TURMAS.map(x => x[0]); snapshot(ts);
@@ -271,6 +285,8 @@ $("tbl").addEventListener("paste", e => {
 /* ---------- Início ---------- */
 // Notas do 9º C lançadas antes da migração (usadas só se o documento ainda não existir)
 const SEED = {"9C":{"0":100,"1":100,"2":100,"3":100,"4":100,"5":100,"6":100,"7":100,"8":100,"9":100,"10":100,"11":100,"12":100,"13":100,"14":100,"15":100,"16":100,"18":100,"19":100,"20":100,"21":100,"22":100,"23":100,"24":100,"26":70,"28":100,"29":100,"30":100,"31":100,"32":100,"33":100,"34":100,"35":100}};
+$("btnGeral").onclick = () => destravar("ALL");
+applyMore();
 render();
 (async () => {
   const timer = setTimeout(() => setStatus("Sem conexão com os dados compartilhados. Os lançamentos podem não salvar.", "err"), 10000);
