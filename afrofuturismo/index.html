@@ -105,13 +105,13 @@ const firebaseConfig = {
   appId:"1:676779769177:web:63c1671558172684056048"
 };
 const COL = "afrofuturismo_notas";
-const PASS_HASH = {"8A":"a0a5935330e59384332d5558aed5818346d9552807254ff9f99dde42372536c6","8B":"09066b7b27f17a85b2a6a8d00adba9c13c96cf98ba095ef499811c65bcfe7ee1","9A":"4485b18e1e12c5511f79b2492e1281b609f2c1f3bdc11f381919abf301dd93ec","9B":"321de264d48446a35788ce9a6c695e3f4bb007c77ea1eb728f722ca284e8ca35","9C":"376b199e3bd55fba564e971c175842b166de0a2b47caae4f096af7a31957f5dd","ALL":"a3e8bfaf3468cdfa8eea9f13072e463ea1f9f874ab350b5724ddac9b16d5441e"};
+const PASS_HASH = {"8A":"92da4082022a8e512c9584179320af9df59a6ae15554942250c3724bbabf07c7","8B":"405333447afa224b08daf1b79d0c3c19a749f98eb0dd5dd632f6a1733053a467","9A":"66e23d5fd298f615e9c790abb337ba0482e69c682b0024ed0267bf74b8b86d34","9B":"e5579172a569782858bedbd8b015cd00ce3a8b92a8071dbb2fc8b77f86844fc1","9C":"bdfc9d00e1ef00b4a787af3ff76e5b8128ec144da08827b86c16fe7317b6d727","ALL":"a3e8bfaf3468cdfa8eea9f13072e463ea1f9f874ab350b5724ddac9b16d5441e"};
 const unlocked = new Set(JSON.parse(sessionStorage.getItem("afro_unlock")||"[]"));
 const canEdit = t => unlocked.has("ALL") || unlocked.has(t);
-async function sha(s){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s.trim().toLowerCase())); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+async function sha(s){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s.toLowerCase().replace(/[^a-z0-9]/g,""))); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 async function destravar(t){
   const label = t==="ALL" ? "acesso geral" : "a turma "+TNAME[t];
-  const p = prompt("Digite a senha de "+label+":"); if (p===null) return;
+  const p = prompt("Digite a senha de "+label+(t==="ALL"?":":" (o nome da turma, ex.: "+t+"):")); if (p===null) return;
   if (await sha(p) === PASS_HASH[t]){ unlocked.add(t); try{sessionStorage.setItem("afro_unlock",JSON.stringify([...unlocked]));}catch(_){} render(); applyMore(); }
   else alert("Senha incorreta.");
 }
