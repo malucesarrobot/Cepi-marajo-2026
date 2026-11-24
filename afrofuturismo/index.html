@@ -69,12 +69,10 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
   </header>
 
   <form id="inviteForm" class="bar hidden">
-    <label>Turma <select id="inviteClass" required></select></label>
     <label>Convite dos professores <input id="inviteCode" type="password" required autocomplete="off"></label>
-    <button class="mini2">Vincular minha turma</button>
+    <button class="mini2">Liberar acesso às turmas</button>
   </form>
   <div id="gradeBar" class="bar hidden">
-    <button id="clearClass" class="btn danger" type="button">Apagar notas da turma</button>
     <label for="bulk">Nota inicial
       <span class="pcwrap"><input id="bulk" class="field nota-big" inputmode="decimal" value="" autocomplete="off"><b class="pc big">%</b></span>
     </label>
@@ -137,7 +135,6 @@ let visible = [], ALUNOS = {}, store = {}, ready = new Set(), listeners = [], MA
 let session = 0, busy = false, undo = null, undoTimer;
 let writeQueue = Promise.resolve();
 let currentUser, isAdmin;
-$("inviteClass").innerHTML = TURMAS.map(([id,label]) => '<option value="'+id+'">'+label+'</option>').join("");
 function refresh() {
   if (!document.activeElement?.classList.contains("nota")) render();
 }
@@ -145,7 +142,7 @@ function render(){
   let h = "<thead><tr>";
   visible.forEach(([t,n]) => {
     const com = Object.keys(valsOf(t)).length;
-    h += `<th colspan="3">${n}<small>${com}/${ALUNOS[t].length}</small>${ready.has(t)?`<button class="mini" type="button" data-bulk="${t}">Atribuir a esta turma</button>`:""}</th>`;
+    h += `<th colspan="3">${n}<small>${com}/${ALUNOS[t].length}</small>${ready.has(t)?`<button class="mini" type="button" data-bulk="${t}">Atribuir a esta turma</button> <button class="mini" type="button" data-clear="${t}">Apagar notas da turma</button>`:""}</th>`;
   });
   h += "</tr></thead><tbody>";
   for (let i = 0; i < MAXN; i++){
@@ -230,11 +227,12 @@ function bulk(ts) {
 }
 $("btnAll").onclick = () => isAdmin && bulk(visible.map(([t]) => t));
 function clear(ts) {
-  if (confirm("Apagar todas as notas das turmas selecionadas?")) change(ts,() => ({}),"Notas apagadas.",true);
+  if (confirm(ts.length === 1 ? "Apagar todas as notas de " + TURMAS.find(([id]) => id === ts[0])[1] + "?" : "Apagar todas as notas das turmas selecionadas?")) change(ts,() => ({}),"Notas apagadas.",true);
 }
 $("btnClearAll").onclick = () => isAdmin && clear(visible.map(([t]) => t));
-$("clearClass").onclick = () => { if (visible.length === 1) clear([visible[0][0]]); };
 $("tbl").addEventListener("click", event => {
+  const clearButton = event.target.closest("button[data-clear]");
+  if (clearButton) { clear([clearButton.dataset.clear]); return; }
   const bulkButton = event.target.closest("button[data-bulk]");
   if (bulkButton) { bulk([bulkButton.dataset.bulk]); return; }
   const button = event.target.closest("button.x");
@@ -317,7 +315,6 @@ async function openScope(classes, active) {
   ALUNOS = Object.fromEntries(rows.map(r => [r.t,r.names ?? []]));
   MAXN = Math.max(0,...visible.map(([t])=>ALUNOS[t].length));
   toggle("gradeBar",visible.length > 0);
-  toggle("clearClass",visible.length === 1);
   document.querySelector(".more").hidden = !isAdmin || visible.length !== TURMAS.length;
   render();
   if (!visible.length) { setStatus("As listas das turmas aguardam a migração."); return; }
@@ -352,20 +349,20 @@ onAuthStateChanged(auth,async user => {
     } else {
       const member = await getDocFromServer(accessRef(user));
       if (active !== session) return;
-      if (member.exists()) await openScope(TURMAS.filter(([t]) => t === member.data().turma),active);
-      else { toggle("inviteForm",true); setStatus("Informe o convite e escolha sua turma"); }
+      if (member.exists()) await openScope(TURMAS,active);
+      else { toggle("inviteForm",true); setStatus("Informe o convite dos professores"); }
     }
   } catch { if (active === session) setStatus("Falha ao verificar o acesso.",true); }
 });
 $("inviteForm").onsubmit = async event => {
   event.preventDefault();
-  const user = currentUser, active = session, turma = $("inviteClass").value;
+  const user = currentUser, active = session;
   try {
     const convite = await digest($("inviteCode").value.trim());
     $("inviteCode").value = "";
-    await setDoc(accessRef(user),{turma,convite});
-    if (active === session) { toggle("inviteForm",false); await openScope(TURMAS.filter(([t]) => t === turma),active); }
-  } catch { if (active === session) setStatus("Convite inválido, acesso já vinculado ou falha de conexão.",true); }
+    await setDoc(accessRef(user),{convite});
+    if (active === session) { toggle("inviteForm",false); await openScope(TURMAS,active); }
+  } catch { if (active === session) setStatus("Convite inválido ou falha de conexão.",true); }
 };
 
 </script>
