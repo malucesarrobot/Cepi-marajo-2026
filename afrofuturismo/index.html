@@ -65,15 +65,28 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
 <div class="wrap">
   <header>
     <h1>Projeto <span>Afrofuturismo</span>, notas</h1>
-    <span><button id="btnGeral" class="mini2" type="button">Acesso geral</button> <span id="status" class="chip" role="status">Conectando…</span></span>
+    <span><button id="btnGeral" class="mini2" type="button">Entrar com Google</button> <span id="status" class="chip" role="status">Entre com sua conta Google</span></span>
   </header>
 
-  <div class="bar">
+  <form id="inviteForm" class="bar hidden">
+    <label>Turma <select id="inviteClass" required></select></label>
+    <label>Convite dos professores <input id="inviteCode" type="password" required autocomplete="off"></label>
+    <button class="mini2">Vincular minha turma</button>
+  </form>
+  <div id="adminPanel" class="bar hidden">
+    <button id="migrate" class="mini2" type="button">Migrar listas e notas anteriores</button>
+    <button id="generate" class="mini2" type="button">Gerar convite dos professores</button>
+    <output id="newCode"></output>
+    <button id="test" class="mini2" type="button">Executar teste isolado</button>
+    <output id="testObserver" aria-live="polite"></output>
+  </div>
+  <div id="gradeBar" class="bar hidden">
+    <button id="clearClass" class="btn danger" type="button">Apagar notas da turma</button>
     <label for="bulk">Nota inicial
       <span class="pcwrap"><input id="bulk" class="field nota-big" inputmode="decimal" value="" autocomplete="off"><b class="pc big">%</b></span>
     </label>
     <label class="check"><input id="keep" type="checkbox"> Manter quem já tem nota</label>
-    <span class="msg">Destrave sua turma com a senha e use “Atribuir a esta turma”. O ✕ apaga a nota de um aluno.</span>
+    <span class="msg">Use “Atribuir a esta turma” para lançar em lote. O ✕ apaga a nota de um aluno.</span>
     <details class="more">
       <summary>Mais opções (todas as turmas)</summary>
       <div class="morebox">
@@ -93,9 +106,10 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
 </div>
 
 <script type="module">
-"use strict";
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDocFromServer, setDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 const firebaseConfig = {
   apiKey:"AIzaSyCrQyfKXGjEtiyOwci7jhd5_e3l3fMTClE",
   authDomain:"cepi-marajo-2026.firebaseapp.com",
@@ -104,92 +118,55 @@ const firebaseConfig = {
   messagingSenderId:"676779769177",
   appId:"1:676779769177:web:63c1671558172684056048"
 };
-const COL = "afrofuturismo_notas";
-const PASS_HASH = {"8A":"92da4082022a8e512c9584179320af9df59a6ae15554942250c3724bbabf07c7","8B":"405333447afa224b08daf1b79d0c3c19a749f98eb0dd5dd632f6a1733053a467","9A":"66e23d5fd298f615e9c790abb337ba0482e69c682b0024ed0267bf74b8b86d34","9B":"e5579172a569782858bedbd8b015cd00ce3a8b92a8071dbb2fc8b77f86844fc1","9C":"bdfc9d00e1ef00b4a787af3ff76e5b8128ec144da08827b86c16fe7317b6d727","ALL":"a3e8bfaf3468cdfa8eea9f13072e463ea1f9f874ab350b5724ddac9b16d5441e"};
-const unlocked = new Set(JSON.parse(sessionStorage.getItem("afro_unlock")||"[]"));
-const canEdit = t => unlocked.has("ALL") || unlocked.has(t);
-async function sha(s){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s.toLowerCase().replace(/[^a-z0-9]/g,""))); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
-async function destravar(t){
-  const label = t==="ALL" ? "acesso geral" : "a turma "+TNAME[t];
-  const p = prompt("Digite a senha de "+label+(t==="ALL"?":":" (o nome da turma, ex.: "+t+"):")); if (p===null) return;
-  if (await sha(p) === PASS_HASH[t]){ unlocked.add(t); try{sessionStorage.setItem("afro_unlock",JSON.stringify([...unlocked]));}catch(_){} render(); applyMore(); }
-  else alert("Senha incorreta.");
-}
-function applyMore(){ const m=document.querySelector(".more"); if (m) m.style.display = unlocked.has("ALL") ? "" : "none"; }
-
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({prompt:"select_account"});
+const adminEmail = "malu.cesar@gmail.com";
 const TURMAS = [["8A","8º A"],["8B","8º B"],["9A","9º A"],["9B","9º B"],["9C","9º C"]];
-const TNAME = Object.fromEntries(TURMAS);
-
-const ALUNOS = {
-"9A":["ANA LÍVIA DE MELO SOARES","ARTHUR VASCONCELOS NUNES","ARYANE AUZIER SOUZA","ASHLEY JULIA DE PAIVA CABRAL","BRAYAN ELLIOT DA COSTA MENDES","DAVI MOREIRA DE FARIAS","DÉBORA HADASSA FERREIRA COUTINHO","DHIENNY CHRISTINY DINIZ DOS SANTOS","ELOÍSA DA SILVA RIBEIRO","EMANOELLY DO AMARAL ALMEIDA","EMANUELLY DOS REIS MENEZES","GEOVANA FERNANDES MELO","GIOVANNA SILVA SOUSA","GUSTAVO ALEXANDRE RIBEIRO DE SOUTO","HANS DONNER DE JESUS CARVALHO","JOÃO CARLOS GOMES LACERDA","JUAN DA COSTA E SILVA","JUDITE SANTANA DOS SANTOS","JULIA FERNANDES MENDES","KEMILLY YASMIN FERREIRA DE SOUSA","LETÍCIA RUFINO DA SILVA","LORRANY ANCELMO DE OLIVEIRA","LUÍZA FERREIRA MARTINS","MARIA EDUARDA RODRIGUES DA SILVA","MARÍA FERNANDA GOMES DA SILVA","MARIA HELOIZA DOS SANTOS FREITAS","MIGUEL ANTÔNIO SOUZA CARVALHO","MIQUEIAS COELHO DA SILVA","RADIJA RODRIGUES SANTOS","RIKELMY PINHEIRO VISGUEIRA","RODRIGO MELO DE LIMA","SAMUEL GONÇALVES DE JESUS","SOPHIA VITÓRIA NEVES SANTANA","WESLEY RAMOS DA SILVA","YASMIN VICTÓRIA DE BARRO SILVA"],
-"9B":["ALICE COSTA SANTOS","ANA PAULA SILVA CABRAL","BEATRIZ PEREIRA ALVES DA SILVA","CLARA THAINÁ RODRIGUES VALADARES","DANIEL OLIVEIRA MARTINS","DANIEL RODRIGUES DE SOUSA","DAVI OLIVEIRA MARTINS","DHENILLY SOPHYA GOMES DOS SANTOS","DIEGO OLIVEIRA MARTINS","EDUARDO EMANUEL RODRIGUES DOS SANTOS","ELLYSSON BRUNO RIBEIRO DE SANTANA","EMANUELY VITÓRIA TAVARES CAMPELO DA SILVA","ENZO OLIVEIRA DUARTE","ERIK FELIPE PEREIRA BARBOZA","FELIPE PEREIRA SANTOS","FELIPE SOUSA SANTOS","GEOVANNA INACIO LIMA","GIAN CARLOS LEAL MARTINS","HELOISY MARIA ARAGÃO DE SOUSA","IANARA MARCELLY DE OLIVEIRA DA SILVA","JOÃO ARTHUR MORAES OLIVEIRA","KAIK JULIAN FERREIRA ROCHA","KAIO THAYLOR SOUSA PAIXÃO","KAYO AUGUSTO ARAUJO DOS ANJOS","LAURA SOUZA DOS ANJOS","LORRANE CAMARA DOS SANTOS","LUAN RONY DA TRINDADE MEDEIROS","MARIANY VIEIRA MILITÃO","MIGUEL ANGELLO COELHO SANTOS","MIGUEL CARLOS FERNANDES DA SILVA","NADYELY VITÓRIA PEREIRA ALVES DA SILVA","NATHALIA VIANA DE SOUZA","NICOLLE CHRISTINA ALVES FERNANDES","SOPHIA LOPES DE OLIVEIRA","STEFANY SILVA ALVES","VITORIA FERNANDES DE JESUS","ZAQUEL DOS SANTOS MARQUES"],
-"9C":["ANA PAULA SANTANA CARVALHO","ANTONIO GUILHERME RODRIGUES CAVALCANTE","CESAR DAVID VELIZ SALAZAR","DAVI ASAFE SILVA COSTA","DIEGO PEREIRA DA SILVA","EDUARDO MANOEL PEREIRA DA COSTA","GUSTAVO SHAKESPEARE RODRIGUES DOS SANTOS","IGOR INDRA DA COSTA","ISADORA SILVA DOS SANTOS","IVAN PEDRO SANTANA ABREU","JAQUELINE VITÓRIA PEREIRA DA COSTA MUNIZ","JOSÉ MIZAEL RODRIGUES DA SILVA","JÚLIA FERREIRA DIAS PEREIRA","KALEB DOS SANTOS OLIVEIRA","KALINY VITÓRIA NUNES DA SILVA","KAUAN DE SOUSA CASTRO GOMES","LARA BARCELAR DE SOUZA","LIDIA VITÓRIA FÉLIX ULHOA","LUCAS FERREIRA DA SILVA DANTAS","LUIZ FELIPE SOUZA COSTA","MARCOS DO ESPÍRITO SANTO PAIVA","MARCOS VINÍCIUS PEREIRA DA SILVA","MARCUS VINICIUS SILVA CUNHA","MARIA CLARA FREIRE DOS SANTOS","MARIA EDUARDA ANDRADE DE SOUZA","MARIA VITÓRYA PEREIRA SILVA","MATEUS HENRIQUE COSTA RODRIGUES","MAXUEL FERREIRA AZEVEDO DA SILVA","MELISSA ANDRADE SIMÃO","MILENA DE JESUS FREITAS","RONALD NEVES BARROS","SAMUEL VIEIRA DE OLIVEIRA","SAMYLA LORRANE RODRIGUES DE SOUSA","THALITA ROSARIO SANTANA DOS SANTOS","VICTOR HUGO COSTA ANDRADE","YAGO OLIVEIRA MATIAS"],
-"8A":["ALICIA ROCHA DE OLIVEIRA","ANA RUTHE DA SILVA GONÇALVES","DAVI LUCAS COLACIO DE SALES","ERICK MARK GONÇALVES LEAL","ESTHER CRISTINNY AMARAL GOMES","GABRIELLY CARDOSO VIEIRA","HAGATHA CRISTINA DA TRINDADE SANTOS","ISABELLA BRITO MAGALHÃES","ITALO GUSTAVO DOS SANTOS FRANÇA","JADY DOS SANTOS SILVA","JOÃO VICTOR ALVES RODRIGUES","JULYANA LUCIANO DO NASCIMENTO","KALLEB DOS SANTOS MARQUES","KENNEDY GABRIEL NEVES DOS SANTOS","KEVIN RYLEN GUEDES DOS SANTOS","LUCAS MATHEUS BARBOSA DA SILVA","LYEDYSSON ALEXSANDRO DA SILVA SANTOS","MAIRA KELI DE OLIVEIRA SILVA","MARIA FERNANDA DA CRUZ MENDES","MARIA HELOIZA DA CUNHA MENDES","MARIA ISABELLA DOS SANTOS DE LIMA","MARIA VITÓRIA OLIVEIRA DE SA","MAURÍCIO HAZARD MENEZES DE SOUZA","NAYRA LUIZA PEREIRA DOS SANTOS","PEDRO HENRIQUE FAUSTINO DA SILVA","PIETRO ALVES DE JESUS","RHUTY MICKELANNY DE SOUZA TEIXEIRA","ROBERTA KADYLLE SANTOS DA SILVA","SAMUEL FELIX DOS SANTOS","SOFIA RODRIGUES DE SOUZA","VALESCA CRISTINA DE MELO PARANHOS","VITÓRIA COSTA DE DEUS","GABRIELA BRITO PINEIRO"],
-"8B":["ANA BEATRIZ SOUSA DE MORAES","ANA CLARA RODRIGUES DE SOUZA","ANA KESIA ALCÂNTARA DA SILVA","ANA LUÍSA DOS SANTOS CAMPOS","ANNA ALICY GOMES DAS NEVES","BRUNO OLIVEIRA SANTOS","CARLOS CLECIO SANTOS SOUZA","CLARA CANGIRANA DA SILVA","DAVI LUIS OLIVEIRA SAMPAIO","DIOGO EMANUEL DA SILVA CRUZ","EVELLY LAUANE BARROS CARVALHO","GABRIEL BENTO DA SILVA","HIAGO NERY DA SILVA","ÌTALO DAVISON RAMOS MOURA SANTOS CORDEIRO","KAIO DANIEL REIS PACHECO","KALLEB ARAUJO DA SILVA","KARINNY LOUISE MUNIZ","KARLEANY VITÓRIA RODRIGUES DOS SANTOS","KYMY RAFAELA DA COSTA MIRANDA","LARISSA ISABELLA LEAL DE CARVALHO","LUCAS DA COSTA SILVA","LUIZA SÁTIRO DE OLIVEIRA","MARIA CLARA CHAVES BARCELOS","MARIA ELOYSA CARVALHO DOS SANTOS","MARYA EDUARDA PEREIRA DA SILVA","MATHEUS SOUZA PEREIRA DE ARAUJO","NICOLAS MIGUEL DIAS DA SILVA","SARAH QUIRINO DOS SANTOS ARAUJO","SOPHIA OLIVEIRA DA SILVA","SOPHYA LARYSSA AMARAL DOS SANTOS","TALLYSSON WANDRYLL CARDOSO OSORIO","THALIA VITÓRIA SILVA PONTE RODRIGUES","THALYA SOUZA AMARAL","VITOR LUCAS ROCHA DE JESUS","YASMIM GABRIELLY DOS SANTOS PESSOA"]
-};
-
+const COL = "afrofuturismo_notas";
 const $ = id => document.getElementById(id);
-let db = null, canWrite = true, store = {}, undoSnap = null, undoTimer = null;
-const dirty = {}, saving = {}, pending = {}, timers = {};
-const MAXN = Math.max(...TURMAS.map(([t]) => ALUNOS[t].length));
-
-function parseNum(s){
-  s = String(s).trim().replace("%","").replace(",", ".");
-  if (s === "") return null;
-  if (!/^\d+(\.\d+)?$/.test(s)) return NaN;
-  const n = Math.round(parseFloat(s)*100)/100;
-  return n > 100 ? NaN : n;
-}
-const fmt = n => (typeof n === "number") ? String(n).replace(".", ",") : "";
-const valsOf = t => (store[t] && store[t].vals) || {};
+const fmt = n => typeof n === "number" ? String(n).replace(".", ",") : "";
 const hhmm = () => new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-function setStatus(text, kind){ const el=$("status"); el.textContent=text; el.className="chip"+(kind?" "+kind:""); }
-
-/* ---------- Dados ---------- */
-function setVal(t, i, v){
-  const vals = Object.assign({}, valsOf(t));
-  if (v === null) delete vals[i]; else vals[i] = v;
-  store[t] = Object.assign({}, store[t], { vals });
+const setStatus = (value, error = false) => {
+  $("status").textContent = value;
+  $("status").classList.toggle("err", error);
+};
+const toggle = (id, show) => $(id).classList.toggle("hidden", !show);
+const escapeHtml = value => value?.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
+const valsOf = t => store[t]?.vals ?? {};
+const notesRef = t => doc(db,COL,t);
+const rosterRef = t => doc(db,"afrofuturismo_turmas",t);
+const accessRef = user => doc(db,"afrofuturismo_acessos",user.uid);
+const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value))), x => x.toString(16).padStart(2,"0")).join("");
+let visible = [], ALUNOS = {}, store = {}, ready = new Set(), listeners = [], MAXN = 0;
+let session = 0, busy = false, undo = null, undoTimer;
+let writeQueue = Promise.resolve();
+let currentUser, isAdmin;
+$("inviteClass").innerHTML = TURMAS.map(([id,label]) => '<option value="'+id+'">'+label+'</option>').join("");
+function refresh() {
+  if (!document.activeElement?.classList.contains("nota")) render();
 }
-function queueSave(t){
-  dirty[t] = true; setStatus("Salvando…");
-  clearTimeout(timers[t]); timers[t] = setTimeout(() => flush(t), 600);
-}
-async function flush(t){
-  if (!db){ dirty[t] = false; setStatus("Modo local: não compartilhado", "err"); return; }
-  if (saving[t]){ pending[t] = true; return; }
-  saving[t] = true;
-  try {
-    await setDoc(doc(db, COL, t), { turma: t, vals: valsOf(t), at: new Date().toISOString() });
-    setStatus("Salvo às " + hhmm());
-  } catch (e) {
-    setStatus("Não foi possível salvar. Você precisa de acesso para editar.", "err");
-  } finally {
-    saving[t] = false;
-    if (pending[t]){ pending[t] = false; flush(t); } else dirty[t] = false;
-  }
-}
-
-/* ---------- Tabela ---------- */
 function render(){
   let h = "<thead><tr>";
-  TURMAS.forEach(([t,n]) => {
+  visible.forEach(([t,n]) => {
     const com = Object.keys(valsOf(t)).length;
-    h += `<th colspan="3">${n}<small>${com}/${ALUNOS[t].length}</small>${canEdit(t)?`<button class="mini" type="button" data-bulk="${t}">Atribuir a esta turma</button>`:`<button class="mini" type="button" data-unlock="${t}">🔒 Destravar</button>`}</th>`;
+    h += `<th colspan="3">${n}<small>${com}/${ALUNOS[t].length}</small>${ready.has(t)?`<button class="mini" type="button" data-bulk="${t}">Atribuir a esta turma</button>`:""}</th>`;
   });
   h += "</tr></thead><tbody>";
   for (let i = 0; i < MAXN; i++){
     h += "<tr>";
-    TURMAS.forEach(([t]) => {
-      const nm = ALUNOS[t][i];
+    visible.forEach(([t]) => {
+      const nm = escapeHtml(ALUNOS[t][i]);
       if (nm === undefined){ h += `<td class="nm"></td><td></td><td></td>`; return; }
       const v = valsOf(t)[i], has = typeof v === "number";
-      h += `<td class="nm" title="${nm}"><i>${i+1}</i>${nm}</td><td class="nt"><input class="nota${has?" has":""}" data-t="${t}" data-i="${i}" inputmode="decimal" autocomplete="off" aria-label="Nota (percentual) de ${nm}" value="${fmt(v)}"${canEdit(t)?"":" disabled"}><b class="pc">%</b></td><td><button class="x" type="button" data-t="${t}" data-i="${i}" aria-label="Apagar nota de ${nm}" title="Apagar nota"${has&&canEdit(t)?"":" disabled"}>✕</button></td>`;
+      h += `<td class="nm" title="${nm}"><i>${i+1}</i>${nm}</td><td class="nt"><input class="nota${has?" has":""}" data-t="${t}" data-i="${i}" inputmode="decimal" autocomplete="off" aria-label="Nota (percentual) de ${nm}" value="${fmt(v)}"${ready.has(t)?"":" disabled"}><b class="pc">%</b></td><td><button class="x" type="button" data-t="${t}" data-i="${i}" aria-label="Apagar nota de ${nm}" title="Apagar nota"${has&&ready.has(t)?"":" disabled"}>✕</button></td>`;
     });
     h += "</tr>";
   }
   h += "</tbody><tfoot><tr>";
-  TURMAS.forEach(([t]) => {
+  visible.forEach(([t]) => {
     const nums = Object.values(valsOf(t)).filter(x => typeof x === "number");
     const m = nums.length ? fmt(Math.round(nums.reduce((s,x)=>s+x,0)/nums.length*100)/100) : "–";
     h += `<td colspan="3">Com nota: ${nums.length} de ${ALUNOS[t].length} · média ${m}${nums.length?"%":""}</td>`;
@@ -197,119 +174,273 @@ function render(){
   h += "</tr></tfoot>";
   $("tbl").innerHTML = h;
 }
-function refresh(){
-  const a = document.activeElement;
-  if (a && a.classList && a.classList.contains("nota")) return; // não atrapalha quem está digitando
-  render();
-}
 
-/* ---------- Ações em massa e desfazer ---------- */
-function snapshot(ts){ undoSnap = {}; ts.forEach(t => { undoSnap[t] = Object.assign({}, valsOf(t)); }); }
-function showToast(msg, withUndo){
-  $("toastMsg").textContent = msg; $("btnUndo").classList.toggle("hidden", !withUndo); $("toast").classList.remove("hidden");
-  clearTimeout(undoTimer); undoTimer = setTimeout(() => { $("toast").classList.add("hidden"); undoSnap = null; }, 20000);
+function parseNum(value) {
+  const input = String(value).trim().replace("%","").replace(",",".");
+  if (!input) return null;
+  const number = /^\d+(\.\d+)?$/.test(input) ? Number(input) : NaN;
+  return number <= 100 ? Math.round(number * 100) / 100 : NaN;
 }
-function bulk(ts, label){
-  if (!ts.every(canEdit)) return;
-  const v = parseNum($("bulk").value);
-  if (v === null || Number.isNaN(v)){ $("bulk").setAttribute("aria-invalid","true"); showToast("Digite o percentual (0 a 100) no campo Nota inicial antes de atribuir.", false); return; }
-  $("bulk").removeAttribute("aria-invalid");
-  const keep = $("keep").checked; snapshot(ts);
-  let count = 0;
-  ts.forEach(t => {
-    const next = Object.assign({}, valsOf(t));
-    ALUNOS[t].forEach((_, i) => { if (keep && typeof next[i] === "number") return; next[i] = v; count++; });
-    store[t] = Object.assign({}, store[t], { vals: next }); queueSave(t);
+function inform(message, entries = null) {
+  undo = entries;
+  $("toastMsg").textContent = message;
+  toggle("btnUndo", Boolean(entries?.length));
+  toggle("toast",true);
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { undo = null; toggle("toast",false); },20000);
+}
+function change(ts, transform, message, reversible = false) {
+  const active = session;
+  writeQueue = writeQueue.then(() => {
+    if (active === session) return commitChange(ts, transform, message, reversible);
   });
-  render();
-  showToast(`Nota ${fmt(v)}% atribuída a ${count} aluno(s) (${label}). Use o ✕ para apagar de quem não participou.`, true);
 }
-$("btnAll").onclick = () => unlocked.has("ALL") && bulk(TURMAS.map(x => x[0]), "todas as turmas");
-$("tbl").addEventListener("click", e => {
-  const ub = e.target.closest("button[data-unlock]");
-  if (ub){ destravar(ub.dataset.unlock); return; }
-  const bb = e.target.closest("button[data-bulk]");
-  if (bb){ bulk([bb.dataset.bulk], TNAME[bb.dataset.bulk]); return; }
-  const x = e.target.closest("button.x");
-  if (x && !x.disabled){ setVal(x.dataset.t, Number(x.dataset.i), null); queueSave(x.dataset.t); render(); }
-});
-$("btnUndo").onclick = () => {
-  if (!undoSnap) return;
-  Object.keys(undoSnap).forEach(t => { store[t] = Object.assign({}, store[t], { vals: undoSnap[t] }); queueSave(t); });
-  undoSnap = null; $("toast").classList.add("hidden"); render();
-};
-let armed = false;
-$("btnClearAll").onclick = () => {
-  const m = $("clearMsg");
-  if (!unlocked.has("ALL")) return;
-  if (!armed){ armed = true; m.textContent = "Toque de novo para confirmar."; m.style.color = "var(--bad)"; setTimeout(() => { armed = false; m.textContent = ""; }, 4000); return; }
-  armed = false; m.textContent = "";
-  const ts = TURMAS.map(x => x[0]); snapshot(ts);
-  ts.forEach(t => { store[t] = Object.assign({}, store[t], { vals:{} }); queueSave(t); });
-  render(); showToast("Todas as notas foram apagadas.", true);
-};
-
-/* ---------- Digitar e colar ---------- */
-$("tbl").addEventListener("input", e => {
-  const inp = e.target.closest("input.nota"); if (!inp) return;
-  const v = parseNum(inp.value);
-  if (Number.isNaN(v)){ inp.setAttribute("aria-invalid","true"); return; }
-  inp.removeAttribute("aria-invalid");
-  const t = inp.dataset.t, i = Number(inp.dataset.i);
-  if ((valsOf(t)[i] ?? null) === v) return;
-  setVal(t, i, v); queueSave(t);
-  inp.classList.toggle("has", v !== null);
-  const x = inp.closest("tr").querySelector(`button.x[data-t="${t}"][data-i="${i}"]`); if (x) x.disabled = (v === null);
-});
-$("tbl").addEventListener("keydown", e => {
-  const inp = e.target.closest("input.nota"); if (!inp || e.key !== "Enter") return;
-  e.preventDefault();
-  const next = document.querySelector(`input.nota[data-t="${inp.dataset.t}"][data-i="${Number(inp.dataset.i)+1}"]`);
-  if (next){ next.focus(); next.select(); } else inp.blur();
-});
-$("tbl").addEventListener("blur", e => { if (e.target.classList && e.target.classList.contains("nota")) setTimeout(refresh, 0); }, true);
-$("tbl").addEventListener("paste", e => {
-  const inp = e.target.closest("input.nota"); if (!inp) return;
-  const text = (e.clipboardData || window.clipboardData).getData("text");
-  if (!/\n/.test(text.trim())) return;
-  e.preventDefault();
-  const t = inp.dataset.t; let i = Number(inp.dataset.i);
-  text.replace(/\r/g,"").split("\n").map(l => l.split("\t").pop().trim()).filter((l,k,a) => !(l === "" && k === a.length-1)).forEach(l => {
-    if (i >= ALUNOS[t].length) return;
-    const v = parseNum(l); if (!Number.isNaN(v)) setVal(t, i, v);
-    i++;
-  });
-  queueSave(t); inp.blur(); render();
-});
-
-/* ---------- Início ---------- */
-// Notas do 9º C lançadas antes da migração (usadas só se o documento ainda não existir)
-const SEED = {"9C":{"0":100,"1":100,"2":100,"3":100,"4":100,"5":100,"6":100,"7":100,"8":100,"9":100,"10":100,"11":100,"12":100,"13":100,"14":100,"15":100,"16":100,"18":100,"19":100,"20":100,"21":100,"22":100,"23":100,"24":100,"26":70,"28":100,"29":100,"30":100,"31":100,"32":100,"33":100,"34":100,"35":100}};
-$("btnGeral").onclick = () => destravar("ALL");
-applyMore();
-render();
-(async () => {
-  const timer = setTimeout(() => setStatus("Sem conexão com os dados compartilhados. Os lançamentos podem não salvar.", "err"), 10000);
+async function commitChange(ts, transform, message, reversible) {
+  if (!ts.length || !ts.every(t => ready.has(t))) return;
+  busy = true;
+  const active = session;
+  setStatus("Salvando…");
   try {
-    db = getFirestore(initializeApp(firebaseConfig));
-  } catch(_){ db = null; }
-  if (!db){ clearTimeout(timer); setStatus("Modo local: não compartilhado", "err"); return; }
-  let seeded = false;
-  onSnapshot(collection(db, COL), snap => {
-    const next = {};
-    snap.docs.forEach(d => { next[d.id] = d.data(); });
-    if (!seeded && !snap.metadata.fromCache){
-      seeded = true;
-      Object.keys(SEED).forEach(t => {
-        if (!next[t]){ next[t] = { turma:t, vals:SEED[t] }; setDoc(doc(db, COL, t), { turma:t, vals:SEED[t], at:new Date().toISOString() }).catch(()=>{}); }
+    const entries = await runTransaction(db, async tx => {
+      const snapshots = await Promise.all(ts.map(t => tx.get(notesRef(t))));
+      const changes = [];
+      ts.forEach((t,index) => {
+        const before = snapshots[index].data()?.vals ?? {};
+        const after = transform(t,before);
+        if (JSON.stringify(before) === JSON.stringify(after)) return;
+        const revision = crypto.randomUUID();
+        tx.set(notesRef(t), {turma:t, vals:after, revision, at:new Date().toISOString()}, {mergeFields:["turma","vals","revision","at"]});
+        changes.push({t,before,revision});
       });
+      return changes;
+    });
+    if (active === session) {
+      setStatus("Sincronizado às " + hhmm());
+      if (message) inform(message, reversible ? entries : null);
     }
-    Object.keys(dirty).forEach(t => { if (dirty[t] || saving[t]) next[t] = store[t]; });
-    store = next;
-    if (!snap.metadata.fromCache){ clearTimeout(timer); setStatus("Conectado · " + hhmm()); }
+  } catch (error) {
+    if (active === session) setStatus(error.message === "conflito" ? "A nota mudou em outro dispositivo. Confira e tente novamente." : "A alteração não foi salva. Confira o acesso e a conexão.",true);
+  } finally {
+    busy = false;
     refresh();
-  }, () => { clearTimeout(timer); setStatus("Sem permissão ou erro ao carregar os dados. Avise a professora Malu.", "err"); });
-})();
+  }
+}
+function bulk(ts) {
+  const v = parseNum($("bulk").value);
+  if (v === null || Number.isNaN(v)) { inform("Digite um percentual entre 0 e 100."); return; }
+  const keep = $("keep").checked;
+  change(ts,(t,before) => {
+    const after = {...before};
+    ALUNOS[t].forEach((_,i) => { if (!keep || typeof before[i] !== "number") after[i] = v; });
+    return after;
+  },"Notas atribuídas.",true);
+}
+$("btnAll").onclick = () => isAdmin && bulk(visible.map(([t]) => t));
+function clear(ts) {
+  if (confirm("Apagar todas as notas das turmas selecionadas?")) change(ts,() => ({}),"Notas apagadas.",true);
+}
+$("btnClearAll").onclick = () => isAdmin && clear(visible.map(([t]) => t));
+$("clearClass").onclick = () => { if (visible.length === 1) clear([visible[0][0]]); };
+$("tbl").addEventListener("click", event => {
+  const bulkButton = event.target.closest("button[data-bulk]");
+  if (bulkButton) { bulk([bulkButton.dataset.bulk]); return; }
+  const button = event.target.closest("button.x");
+  if (!button || button.disabled) return;
+  const {t,i} = button.dataset;
+  const expected = valsOf(t)[i];
+  change([t],(_,before) => {
+    if (before[i] !== expected) throw Error("conflito");
+    const after = {...before};
+    delete after[i];
+    return after;
+  },"Nota apagada.",true);
+});
+$("btnUndo").onclick = async () => {
+  if (!undo || busy) return;
+  const entries = undo;
+  busy = true;
+  try {
+    await runTransaction(db, async tx => {
+      const snapshots = await Promise.all(entries.map(({t}) => tx.get(notesRef(t))));
+      if (snapshots.some((snap,i) => snap.data()?.revision !== entries[i].revision)) throw Error("conflito");
+      entries.forEach(({t,before}) => tx.update(notesRef(t), {vals:before,revision:crypto.randomUUID(),at:new Date().toISOString()}));
+    });
+    inform("Alteração desfeita.");
+  } catch { inform("Não foi possível desfazer. Confira se houve outro lançamento."); }
+  finally { busy = false; refresh(); }
+};
+$("tbl").addEventListener("focusin", event => {
+  const input = event.target.closest("input.nota");
+  if (input) input.dataset.original = input.value;
+});
+$("tbl").addEventListener("change", event => {
+  const input = event.target.closest("input.nota");
+  if (!input) return;
+  const value = parseNum(input.value);
+  if (Number.isNaN(value)) { inform("Digite um percentual entre 0 e 100."); return; }
+  const {t,i,original} = input.dataset;
+  const expected = parseNum(original);
+  change([t],(_,before) => {
+    if ((before[i] ?? null) !== expected) throw Error("conflito");
+    const after = {...before};
+    if (value === null) delete after[i]; else after[i] = value;
+    return after;
+  });
+});
+$("tbl").addEventListener("keydown", event => {
+  if (event.key === "Enter" && event.target.matches("input.nota")) { event.preventDefault(); event.target.blur(); }
+});
+$("tbl").addEventListener("focusout", () => setTimeout(refresh,0));
+$("tbl").addEventListener("paste", event => {
+  const input = event.target.closest("input.nota");
+  if (!input) return;
+  const rows = event.clipboardData.getData("text").trimEnd().split(/\r?\n/);
+  if (rows.length < 2) return;
+  event.preventDefault();
+  const {t,i} = input.dataset;
+  const expected = {...valsOf(t)};
+  const edits = rows.map((row,offset) => [Number(i)+offset,parseNum(row.split("\t").at(-1))])
+    .filter(([index,v]) => index < ALUNOS[t].length && !Number.isNaN(v));
+  change([t],(_,before) => {
+    const after = {...before};
+    for (const [index,v] of edits) {
+      if ((before[index] ?? null) !== (expected[index] ?? null)) throw Error("conflito");
+      if (v === null) delete after[index]; else after[index] = v;
+    }
+    return after;
+  },"Notas coladas.",true);
+});
+async function openScope(classes, active) {
+  const rows = await Promise.all(classes.map(async ([t,label]) => {
+    const roster = await getDocFromServer(rosterRef(t));
+    return {t,label,names:roster.data()?.names};
+  }));
+  if (active !== session) return;
+  visible = rows.filter(r => Array.isArray(r.names)).map(r => [r.t,r.label]);
+  ALUNOS = Object.fromEntries(rows.map(r => [r.t,r.names ?? []]));
+  MAXN = Math.max(0,...visible.map(([t])=>ALUNOS[t].length));
+  toggle("gradeBar",visible.length > 0);
+  toggle("clearClass",visible.length === 1);
+  document.querySelector(".more").hidden = !isAdmin || visible.length !== TURMAS.length;
+  render();
+  if (!visible.length) { setStatus("As listas das turmas aguardam a migração."); return; }
+  visible.forEach(([t]) => listeners.push(onSnapshot(notesRef(t), {includeMetadataChanges:true}, snap => {
+    if (active !== session || snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+    store[t] = snap.data();
+    ready.add(t);
+    if (!busy) setStatus("Conectado · " + hhmm());
+    refresh();
+  },() => { ready.delete(t); setStatus("O Firestore recusou o acesso às notas.",true); refresh(); })));
+}
+$("btnGeral").onclick = async () => {
+  try { if (auth.currentUser) await signOut(auth); else await signInWithPopup(auth,provider); }
+  catch (error) { setStatus("Falha no login Google (" + (error.code || "erro") + ").",true); }
+};
+onAuthStateChanged(auth,async user => {
+  const active = ++session;
+  listeners.forEach(stop => stop());
+  listeners = [];
+  visible = []; ALUNOS = {}; store = {}; ready = new Set(); MAXN = 0;
+  currentUser = user;
+  isAdmin = user?.emailVerified && user.email === adminEmail;
+  undo = null;
+  $("newCode").textContent = "";
+  ["inviteForm","adminPanel","gradeBar","toast"].forEach(id=>toggle(id,false));
+  render();
+  $("btnGeral").textContent = user ? "Sair" : "Entrar com Google";
+  if (!user) { setStatus("Entre com sua conta Google"); return; }
+  setStatus("Verificando acesso…");
+  try {
+    if (isAdmin) {
+      toggle("adminPanel",true);
+      listeners.push(onSnapshot(notesRef("teste-sincronizacao"), {includeMetadataChanges:true}, snap => {
+        if (active !== session || snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+        const data = snap.data();
+        if (data) $("testObserver").textContent = "Teste remoto: " + (data.vals[0] ?? "nota excluída") + " · " + data.revision.slice(0,8);
+      }));
+      await openScope(TURMAS,active);
+    } else {
+      const member = await getDocFromServer(accessRef(user));
+      if (active !== session) return;
+      if (member.exists()) await openScope(TURMAS.filter(([t]) => t === member.data().turma),active);
+      else { toggle("inviteForm",true); setStatus("Informe o convite e escolha sua turma"); }
+    }
+  } catch { if (active === session) setStatus("Falha ao verificar o acesso.",true); }
+});
+$("inviteForm").onsubmit = async event => {
+  event.preventDefault();
+  const user = currentUser, active = session, turma = $("inviteClass").value;
+  try {
+    const convite = await digest($("inviteCode").value.trim());
+    $("inviteCode").value = "";
+    await setDoc(accessRef(user),{turma,convite});
+    if (active === session) { toggle("inviteForm",false); await openScope(TURMAS.filter(([t]) => t === turma),active); }
+  } catch { if (active === session) setStatus("Convite inválido, acesso já vinculado ou falha de conexão.",true); }
+};
+$("generate").onclick = async () => {
+  if (!isAdmin) return;
+  const code = crypto.randomUUID() + crypto.randomUUID();
+  try {
+    await setDoc(doc(db,"afrofuturismo_convites",await digest(code)),{at:new Date().toISOString()});
+    $("newCode").textContent = code;
+  } catch { setStatus("Não foi possível gerar o convite.",true); }
+};
+$("migrate").onclick = async () => {
+  if (!isAdmin) return;
+  $("migrate").disabled = true;
+  try {
+    const response = await fetch("https://raw.githubusercontent.com/malucesarrobot/Cepi-marajo-2026/ffdc265d11a8bb45c53b59f8ab07d028505e72c5/afrofuturismo/index.html");
+    if (!response.ok) throw Error("fonte");
+    const source = await response.text();
+    const oldRoster = source.match(/const ALUNOS = (\{[\s\S]*?\n\});/)?.[1];
+    const oldNotes = source.match(/const SEED = (\{[^\n]*\});/)?.[1];
+    const decode = value => JSON.parse(value.replace(/([{,])\s*([0-9]+[A-Z]?|[A-Za-z_]+)\s*:/g,'$1"$2":').replace(/,\s*([}\]])/g,"$1"));
+    const names = decode(oldRoster), notes = decode(oldNotes);
+    if (Object.keys(notes["9C"] ?? {}).length !== 33 || !TURMAS.every(([t], i) => names[t]?.length === [33,35,35,37,36][i])) throw Error("contagem");
+    await runTransaction(db, async tx => {
+      const refs = [...TURMAS.map(([t])=>rosterRef(t)),notesRef("9C")];
+      const snaps = await Promise.all(refs.map(ref=>tx.get(ref)));
+      TURMAS.forEach(([t],i)=> { if (!snaps[i].exists()) tx.set(refs[i],{names:names[t]}); });
+      if (!snaps[5].exists()) tx.set(refs[5],{turma:"9C",vals:notes["9C"],at:new Date().toISOString()});
+    });
+    await openScope(TURMAS,session);
+    inform("Listas e notas anteriores conferidas na migração.");
+  } catch(error) { setStatus("Migração pendente (" + (error.code || error.message) + ").",true); }
+  finally { $("migrate").disabled = false; }
+};
+$("test").onclick = async () => {
+  if (!isAdmin) return;
+  $("test").disabled = true;
+  const t = "teste-sincronizacao", ref = notesRef(t);
+  let stop;
+  const marker = crypto.randomUUID();
+  const signals = new Map();
+  try {
+    stop = onSnapshot(ref,{includeMetadataChanges:true},snapshot => {
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+      const record = snapshot.data();
+      if (record?.revision === marker) signals.get(String(record.vals[0] ?? ""))?.();
+    });
+    async function check(value, vals) {
+      let timer;
+      const seen = new Promise((resolve,reject) => {
+        signals.set(value,resolve);
+        timer = setTimeout(()=>reject(Error("tempo")),10000);
+      });
+      try {
+        await Promise.all([seen,setDoc(ref,{turma:t,vals,revision:marker})]);
+        const remote = await getDocFromServer(ref);
+        if (remote.data()?.revision !== marker || String(remote.data().vals[0] ?? "") !== value) throw Error("leitura");
+      } finally { clearTimeout(timer); signals.delete(value); }
+    }
+    await check("41",{0:41});
+    await check("72",{0:72});
+    await check("",{});
+    inform("Teste isolado passou: leitura, gravação, edição, exclusão da nota e atualização do observador.");
+  } catch (error) { setStatus("Teste inconclusivo (" + (error.code || error.message) + ").",true); }
+  finally { if (stop) stop(); $("test").disabled = false; }
+};
+
 </script>
 </body>
 </html>
