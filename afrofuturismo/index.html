@@ -73,13 +73,6 @@ tfoot td{position:sticky;bottom:0;background:var(--surface2);font-weight:700;pad
     <label>Convite dos professores <input id="inviteCode" type="password" required autocomplete="off"></label>
     <button class="mini2">Vincular minha turma</button>
   </form>
-  <div id="adminPanel" class="bar hidden">
-    <button id="migrate" class="mini2" type="button">Migrar listas e notas anteriores</button>
-    <button id="generate" class="mini2" type="button">Gerar convite dos professores</button>
-    <output id="newCode"></output>
-    <button id="test" class="mini2" type="button">Executar teste isolado</button>
-    <output id="testObserver" aria-live="polite"></output>
-  </div>
   <div id="gradeBar" class="bar hidden">
     <button id="clearClass" class="btn danger" type="button">Apagar notas da turma</button>
     <label for="bulk">Nota inicial
@@ -288,7 +281,11 @@ $("tbl").addEventListener("change", event => {
   });
 });
 $("tbl").addEventListener("keydown", event => {
-  if (event.key === "Enter" && event.target.matches("input.nota")) { event.preventDefault(); event.target.blur(); }
+  if (event.key !== "Enter" || !event.target.matches("input.nota")) return;
+  event.preventDefault();
+  const input = event.target;
+  const next = $("tbl").querySelector('input.nota[data-t="'+input.dataset.t+'"][data-i="'+(Number(input.dataset.i)+1)+'"]');
+  if (next) { next.focus(); next.select(); } else input.blur();
 });
 $("tbl").addEventListener("focusout", () => setTimeout(refresh,0));
 $("tbl").addEventListener("paste", event => {
@@ -344,20 +341,13 @@ onAuthStateChanged(auth,async user => {
   currentUser = user;
   isAdmin = user?.emailVerified && user.email === adminEmail;
   undo = null;
-  $("newCode").textContent = "";
-  ["inviteForm","adminPanel","gradeBar","toast"].forEach(id=>toggle(id,false));
+  ["inviteForm","gradeBar","toast"].forEach(id=>toggle(id,false));
   render();
   $("btnGeral").textContent = user ? "Sair" : "Entrar com Google";
   if (!user) { setStatus("Entre com sua conta Google"); return; }
   setStatus("Verificando acesso…");
   try {
     if (isAdmin) {
-      toggle("adminPanel",true);
-      listeners.push(onSnapshot(notesRef("teste-sincronizacao"), {includeMetadataChanges:true}, snap => {
-        if (active !== session || snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
-        const data = snap.data();
-        if (data) $("testObserver").textContent = "Teste remoto: " + (data.vals[0] ?? "nota excluída") + " · " + data.revision.slice(0,8);
-      }));
       await openScope(TURMAS,active);
     } else {
       const member = await getDocFromServer(accessRef(user));
@@ -376,69 +366,6 @@ $("inviteForm").onsubmit = async event => {
     await setDoc(accessRef(user),{turma,convite});
     if (active === session) { toggle("inviteForm",false); await openScope(TURMAS.filter(([t]) => t === turma),active); }
   } catch { if (active === session) setStatus("Convite inválido, acesso já vinculado ou falha de conexão.",true); }
-};
-$("generate").onclick = async () => {
-  if (!isAdmin) return;
-  const code = crypto.randomUUID() + crypto.randomUUID();
-  try {
-    await setDoc(doc(db,"afrofuturismo_convites",await digest(code)),{at:new Date().toISOString()});
-    $("newCode").textContent = code;
-  } catch { setStatus("Não foi possível gerar o convite.",true); }
-};
-$("migrate").onclick = async () => {
-  if (!isAdmin) return;
-  $("migrate").disabled = true;
-  try {
-    const response = await fetch("https://raw.githubusercontent.com/malucesarrobot/Cepi-marajo-2026/ffdc265d11a8bb45c53b59f8ab07d028505e72c5/afrofuturismo/index.html");
-    if (!response.ok) throw Error("fonte");
-    const source = await response.text();
-    const oldRoster = source.match(/const ALUNOS = (\{[\s\S]*?\n\});/)?.[1];
-    const oldNotes = source.match(/const SEED = (\{[^\n]*\});/)?.[1];
-    const decode = value => JSON.parse(value.replace(/([{,])\s*([0-9]+[A-Z]?|[A-Za-z_]+)\s*:/g,'$1"$2":').replace(/,\s*([}\]])/g,"$1"));
-    const names = decode(oldRoster), notes = decode(oldNotes);
-    if (Object.keys(notes["9C"] ?? {}).length !== 33 || !TURMAS.every(([t], i) => names[t]?.length === [33,35,35,37,36][i])) throw Error("contagem");
-    await runTransaction(db, async tx => {
-      const refs = [...TURMAS.map(([t])=>rosterRef(t)),notesRef("9C")];
-      const snaps = await Promise.all(refs.map(ref=>tx.get(ref)));
-      TURMAS.forEach(([t],i)=> { if (!snaps[i].exists()) tx.set(refs[i],{names:names[t]}); });
-      if (!snaps[5].exists()) tx.set(refs[5],{turma:"9C",vals:notes["9C"],at:new Date().toISOString()});
-    });
-    await openScope(TURMAS,session);
-    inform("Listas e notas anteriores conferidas na migração.");
-  } catch(error) { setStatus("Migração pendente (" + (error.code || error.message) + ").",true); }
-  finally { $("migrate").disabled = false; }
-};
-$("test").onclick = async () => {
-  if (!isAdmin) return;
-  $("test").disabled = true;
-  const t = "teste-sincronizacao", ref = notesRef(t);
-  let stop;
-  const marker = crypto.randomUUID();
-  const signals = new Map();
-  try {
-    stop = onSnapshot(ref,{includeMetadataChanges:true},snapshot => {
-      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
-      const record = snapshot.data();
-      if (record?.revision === marker) signals.get(String(record.vals[0] ?? ""))?.();
-    });
-    async function check(value, vals) {
-      let timer;
-      const seen = new Promise((resolve,reject) => {
-        signals.set(value,resolve);
-        timer = setTimeout(()=>reject(Error("tempo")),10000);
-      });
-      try {
-        await Promise.all([seen,setDoc(ref,{turma:t,vals,revision:marker})]);
-        const remote = await getDocFromServer(ref);
-        if (remote.data()?.revision !== marker || String(remote.data().vals[0] ?? "") !== value) throw Error("leitura");
-      } finally { clearTimeout(timer); signals.delete(value); }
-    }
-    await check("41",{0:41});
-    await check("72",{0:72});
-    await check("",{});
-    inform("Teste isolado passou: leitura, gravação, edição, exclusão da nota e atualização do observador.");
-  } catch (error) { setStatus("Teste inconclusivo (" + (error.code || error.message) + ").",true); }
-  finally { if (stop) stop(); $("test").disabled = false; }
 };
 
 </script>
